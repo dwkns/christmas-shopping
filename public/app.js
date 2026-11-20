@@ -458,9 +458,39 @@
     haptic(5); pickedColor = b.dataset.color; renderSwatches();
   });
 
+  // ---------- Install tip (Home Screen app, no browser bars) ----------
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let installEvent = null;
+  const tipDismissed = () => { try { return localStorage.getItem("cs-install-x") === "1"; } catch { return false; } };
+  function showInstallTip() {
+    if (standalone || tipDismissed()) return;
+    if (isIOS) {
+      $("installHow").innerHTML = ` Tap ${SHARE_ICON} Share, then <b>Add to Home Screen</b>.`;
+    } else if (installEvent) {
+      $("installHow").textContent = " Open it from your Home Screen, without browser bars.";
+      $("installGo").hidden = false;
+    } else return;
+    $("install").hidden = false;
+  }
+  const SHARE_ICON = '<svg class="share-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; showInstallTip(); });
+  $("installGo").addEventListener("click", async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    await installEvent.userChoice.catch(() => {});
+    installEvent = null;
+    $("install").hidden = true;
+  });
+  $("installX").addEventListener("click", () => {
+    try { localStorage.setItem("cs-install-x", "1"); } catch {}
+    $("install").hidden = true;
+  });
+
   // ---------- Boot ----------
   $("ver").textContent = window.APP_VERSION || "";
   if (!me) setTimeout(() => openSettings(true), 400);
+  showInstallTip();
   render();
   setStatus(online ? "syncing" : "offline");
   sync();
