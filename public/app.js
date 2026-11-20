@@ -6,7 +6,12 @@
   // Items saved as "Multiple Days" before the change count as "All Days".
   const dayOf = (i) => (i.day === "Multiple" ? "All" : i.day);
   const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
-  const TITLES = { all: "All Items", day: "By Day", meal: "By Meal" };
+  const TITLES = { all: "All Items", day: "By Day", meal: "By Meal", aisle: "By Aisle" };
+  // Sainsbury's sections in typical walk order. Keep in sync with netlify/functions/aisles.mjs.
+  const AISLES = ["Fruit & Veg", "Bakery", "Meat & Poultry", "Fish & Seafood", "Deli & Cheese", "Dairy & Eggs",
+    "Chilled & Ready Meals", "Frozen", "Food Cupboard", "Baking & Home Cooking", "World Foods", "Cereals & Spreads",
+    "Tea & Coffee", "Crisps & Snacks", "Chocolate & Sweets", "Soft Drinks & Juice", "Beer, Wine & Spirits",
+    "Christmas & Seasonal", "Household", "Health & Beauty", "Baby", "Pet", "Home & Clothing"];
   const API = "/api/items";
   const POLL_MS = 8000;
 
@@ -17,11 +22,13 @@
       localStorage.setItem("cs-items", JSON.stringify(items));
       localStorage.setItem("cs-outbox", JSON.stringify(outbox));
       localStorage.setItem("cs-tab", tab);
+      localStorage.setItem("cs-aisles", JSON.stringify(aisleMap));
     } catch {}
   };
   let items = load("cs-items", {});   // id -> item (incl. tombstones)
   let outbox = load("cs-outbox", {}); // id -> item waiting to upload
   let tab = load("cs-tab", "all");
+  let aisleMap = load("cs-aisles", {}); // normalised item name -> aisle
   if (typeof tab !== "string" || !TITLES[tab]) tab = "all";
 
   const $ = (id) => document.getElementById(id);
@@ -86,6 +93,7 @@
       if (changed) render();
       online = true;
       setStatus(Object.keys(outbox).length ? "syncing" : "");
+      fetchAisles();
     } catch (e) {
       online = false;
       setStatus("offline");
@@ -98,6 +106,25 @@
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sync(); });
   window.addEventListener("online", sync);
   window.addEventListener("offline", () => setStatus("offline"));
+
+  // ---------- Aisle sorting (Claude, via /api/aisles; cached per item name) ----------
+  const normName = (s) => String(s).trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
+  let aisleBusy = false, aisleFailAt = 0;
+  async function fetchAisles() {
+    const names = [...new Set(live().map((i) => normName(i.name)))].filter((n) => !aisleMap[n]);
+    if (!names.length || aisleBusy || !navigator.onLine || Date.now() - aisleFailAt < 30000) return;
+    aisleBusy = true;
+    if (tab === "aisle") render();
+    try {
+      const res = await fetch("/api/aisles", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ names }) });
+      const data = await res.json().catch(() => ({}));
+      Object.assign(aisleMap, data.aisles || {});
+      if (!res.ok) aisleFailAt = Date.now();
+      persist();
+    } catch { aisleFailAt = Date.now(); }
+    aisleBusy = false;
+    if (tab === "aisle") render();
+  }
 
   // ---------- Rendering ----------
   const byName = (a, b) => (a.done - b.done) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -148,6 +175,11 @@
     } else if (tab === "day") {
       for (const d of DAYS) html += section(DAY_NAMES[d], all.filter((i) => dayOf(i) === d), "day");
       html += section("Other Days", all.filter((i) => !DAYS.includes(dayOf(i))), "");
+    } else if (tab === "aisle") {
+      for (const a of AISLES) html += section(a, all.filter((i) => aisleMap[normName(i.name)] === a), "");
+      const unsorted = all.filter((i) => !AISLES.includes(aisleMap[normName(i.name)]));
+      html += section(aisleBusy ? "Sorting…" : "Not Sorted Yet", unsorted, "");
+      if (unsorted.length && !aisleBusy && !online) html += `<p class="note">Items are sorted into aisles when the phone is online.</p>`;
     } else {
       for (const m of MEALS) html += section(m, all.filter((i) => i.meal === m), "meal");
       html += section("No Meal", all.filter((i) => !MEALS.includes(i.meal)), "meal");
@@ -163,6 +195,7 @@
     tab = t.dataset.tab;
     persist();
     render();
+    if (tab === "aisle") fetchAisles();
     window.scrollTo(0, 0);
   });
   const onScroll = () => $("nav").classList.toggle("scrolled", window.scrollY > 40);
@@ -320,5 +353,9 @@
   render();
   setStatus(online ? "syncing" : "offline");
   sync();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) location.reload(); });
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then((r) => r.update()).catch(() => {});
+  }
 })();

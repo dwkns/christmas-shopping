@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@netlify/blobs": "^11.1.9"
+    "@anthropic-ai/sdk": "^1.11.0",
+    "@netlify/blobs": "^11.1.9",
+    "zod": "^4.6.7"
   }
 }
