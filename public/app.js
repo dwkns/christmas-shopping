@@ -1,8 +1,10 @@
 (() => {
   "use strict";
 
-  const DAYS = ["Thu", "Fri", "Sat", "Sun"];
-  const DAY_NAMES = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday", Multiple: "Multiple Days" };
+  const DAYS = ["Fri", "Sat", "Sun", "All"];
+  const DAY_NAMES = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday", All: "All Days" };
+  // Items saved as "Multiple Days" before the change count as "All Days".
+  const dayOf = (i) => (i.day === "Multiple" ? "All" : i.day);
   const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
   const TITLES = { all: "All Items", day: "By Day", meal: "By Meal" };
   const API = "/api/items";
@@ -104,7 +106,7 @@
 
   function rowHTML(it, hide) {
     const tags = [];
-    if (it.day && hide !== "day") tags.push(`<span class="tag day">${esc(DAY_NAMES[it.day] || it.day)}</span>`);
+    if (it.day && hide !== "day") tags.push(`<span class="tag day">${esc(DAY_NAMES[dayOf(it)] || it.day)}</span>`);
     if (it.meal && hide !== "meal") tags.push(`<span class="tag meal">${esc(it.meal)}</span>`);
     return `<div class="row-wrap" data-id="${esc(it.id)}">
       <button class="row-delete" data-act="delete">Delete</button>
@@ -144,8 +146,8 @@
     } else if (tab === "all") {
       html = `<div class="list">${all.sort(byName).map((i) => rowHTML(i)).join("")}</div>`;
     } else if (tab === "day") {
-      for (const d of [...DAYS, "Multiple"]) html += section(DAY_NAMES[d], all.filter((i) => i.day === d), "day");
-      html += section("No Day", all.filter((i) => !DAY_NAMES[i.day]), "day");
+      for (const d of DAYS) html += section(DAY_NAMES[d], all.filter((i) => dayOf(i) === d), "day");
+      html += section("Other Days", all.filter((i) => !DAYS.includes(dayOf(i))), "");
     } else {
       for (const m of MEALS) html += section(m, all.filter((i) => i.meal === m), "meal");
       html += section("No Meal", all.filter((i) => !MEALS.includes(i.meal)), "meal");
@@ -224,8 +226,7 @@
 
   // ---------- Add / edit sheet ----------
   let editing = null, selDay = "", selMeal = "";
-  $("dayChips").innerHTML = [...DAYS, "Multiple"].map((d) =>
-    `<button type="button" class="chip ${d === "Multiple" ? "multi" : ""}" data-day="${d}">${d === "Multiple" ? "Multiple Days" : d}</button>`).join("");
+  $("dayChips").innerHTML = DAYS.map((d) => `<button type="button" class="chip" data-day="${d}">${d}</button>`).join("");
   $("mealSeg").innerHTML = MEALS.map((m) => `<button type="button" class="seg" data-meal="${m}">${m}</button>`).join("");
 
   function refreshForm() {
@@ -251,7 +252,7 @@
     $("deleteBtn").hidden = !item;
     $("fName").value = item?.name || "";
     $("fQty").value = item?.qty || "";
-    selDay = item?.day || load("cs-lastDay", "");
+    selDay = item ? (DAYS.includes(dayOf(item)) ? dayOf(item) : "") : "All";
     selMeal = item ? item.meal || "" : "";
     refreshForm();
     $("sheet").style.transform = "";
@@ -270,7 +271,6 @@
     if (!name || !selDay) { haptic(30); return; }
     const base = editing ? { ...items[editing.id] } : { id: uid(), done: false, createdAt: Date.now() };
     save({ ...base, name, qty: $("fQty").value.trim(), day: selDay, meal: selMeal });
-    try { localStorage.setItem("cs-lastDay", JSON.stringify(selDay)); } catch {}
     haptic(12);
     if (editing) { closeSheet(); return; }
     // Stay open for rapid entry of the next item.
