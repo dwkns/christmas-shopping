@@ -239,3 +239,7 @@ main { padding: 4px 16px calc(150px + var(--safe-b)); }
 .big-add + .danger { margin-top: 16px; }
 #clearDone { margin-top: 0; }
 .swatches { grid-template-columns: repeat(5, 40px); justify-content: space-between; padding: 2px 12px; }
+/* Sheets open to 90% of the screen height, so the whole form shows without scrolling. */
+.sheet { height: 90vh; height: 90dvh; max-height: none; }
+.sheet-body { flex: 1; }
+.group-label { padding-top: 18px; }
