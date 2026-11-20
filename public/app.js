@@ -322,7 +322,7 @@
   function refreshForm() {
     document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.day === selDay));
     document.querySelectorAll(".seg").forEach((s) => s.classList.toggle("on", s.dataset.meal === selMeal));
-    $("saveBtn").disabled = !($("fName").value.trim() && selDay);
+    $("saveBtn").disabled = !($("itemText").value.trim() && selDay);
   }
   $("dayChips").addEventListener("click", (e) => {
     const c = e.target.closest(".chip"); if (!c) return;
@@ -332,7 +332,7 @@
     const s = e.target.closest(".seg"); if (!s) return;
     haptic(5); selMeal = selMeal === s.dataset.meal ? "" : s.dataset.meal; refreshForm();
   });
-  $("fName").addEventListener("input", refreshForm);
+  $("itemText").addEventListener("input", refreshForm);
 
   function openSheet(item) {
     closeOpenRow();
@@ -340,15 +340,15 @@
     $("sheetTitle").textContent = item ? "Edit Item" : "New Item";
     $("saveLabel").textContent = item ? "Save Changes" : "Add Item";
     $("deleteBtn").hidden = !item;
-    $("fName").value = item?.name || "";
-    $("fQty").value = item?.qty || "";
+    $("itemText").value = item?.name || "";
+    $("itemQty").value = item?.qty || "";
     selDay = item ? (DAYS.includes(dayOf(item)) ? dayOf(item) : "") : "All";
     selMeal = item ? item.meal || "" : "";
     refreshForm();
     $("sheet").style.transform = "";
     $("sheet").classList.add("open");
     $("backdrop").classList.add("open");
-    if (!item) setTimeout(() => $("fName").focus(), 60);
+    if (!item) setTimeout(() => $("itemText").focus(), 60);
   }
   function closeSheet() {
     document.activeElement?.blur();
@@ -357,17 +357,17 @@
     $("backdrop").classList.remove("open");
   }
   function submit() {
-    const name = $("fName").value.trim();
+    const name = $("itemText").value.trim();
     if (!name || !selDay) { haptic(30); return; }
     const base = editing ? { ...items[editing.id] } : { id: uid(), done: false, createdAt: Date.now(), by: me?.name || "", color: me?.color || "" };
-    save({ ...base, name, qty: $("fQty").value.trim(), day: selDay, meal: selMeal });
+    save({ ...base, name, qty: $("itemQty").value.trim(), day: selDay, meal: selMeal });
     haptic(12);
     if (editing) { closeSheet(); return; }
     // Stay open for rapid entry of the next item.
     toast(`Added “${name}”`);
-    $("fName").value = ""; $("fQty").value = "";
+    $("itemText").value = ""; $("itemQty").value = "";
     refreshForm();
-    $("fName").focus();
+    $("itemText").focus();
   }
 
   $("addBtn").addEventListener("click", () => { haptic(10); openSheet(); });
