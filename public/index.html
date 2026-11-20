@@ -20,8 +20,8 @@
     <header class="nav" id="nav">
       <div class="nav-row">
         <h1 class="title" id="title">All Items</h1>
-        <span class="meta"><span id="counts"></span><span class="sync" id="sync" aria-live="polite"></span><span class="ver" id="ver"></span></span>
-        <button class="nav-btn" id="clearDone" hidden>Clear Bought</button>
+        <span class="meta"><span id="counts"></span><span class="sync" id="sync" aria-live="polite"></span><span class="me" id="me"></span><span class="ver" id="ver"></span></span>
+        <button class="icon-btn" id="settingsBtn" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
       </div>
     </header>
     <div class="ptr" id="ptr" aria-hidden="true"><div class="spinner"></div></div>
@@ -59,7 +59,7 @@
     <div class="sheet-bar">
       <button class="nav-btn" id="cancelBtn">Cancel</button>
       <h2 id="sheetTitle">New Item</h2>
-      <button class="nav-btn strong" id="saveBtn" disabled>Add</button>
+      <span></span>
     </div>
     <form class="sheet-body" id="form" autocomplete="off">
       <div class="group">
@@ -73,8 +73,31 @@
       <div class="group-label">Meal <span class="opt">Optional</span></div>
       <div class="segmented" id="mealSeg"></div>
 
+      <button type="button" class="big-add" id="saveBtn" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><span id="saveLabel">Add Item</span></button>
+
       <button type="button" class="group danger" id="deleteBtn" hidden>Delete Item</button>
     </form>
+  </section>
+
+  <section class="sheet" id="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <span></span>
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="nav-btn strong" id="settingsDone">Done</button>
+    </div>
+    <div class="sheet-body">
+      <p class="intro" id="welcomeText" hidden>Add your name. Everyone on the list sees who added each item.</p>
+      <div class="group-label">Your Name</div>
+      <div class="group"><input id="sName" class="field" placeholder="First name" maxlength="40" autocomplete="given-name" enterkeyhint="done"></div>
+      <div class="group-label">Your Colour</div>
+      <div class="swatches" id="swatches"></div>
+      <div id="listSettings">
+        <div class="group-label">List</div>
+        <button type="button" class="group danger" id="clearDone">Clear Bought Items</button>
+        <p class="footnote" id="aboutText"></p>
+      </div>
+    </div>
   </section>
 
   <div class="toast" id="toast"></div>

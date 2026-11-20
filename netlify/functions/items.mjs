@@ -40,6 +40,8 @@ export default async (req) => {
             day: String(c.day || "").slice(0, 20),
             meal: String(c.meal || "").slice(0, 20),
             done: !!c.done,
+            by: String(c.by || "").slice(0, 40),
+            color: /^#[0-9a-fA-F]{6}$/.test(c.color || "") ? c.color : "",
             createdAt: Number(c.createdAt) || c.updatedAt,
             updatedAt: c.updatedAt,
           };

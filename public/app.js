@@ -22,6 +22,7 @@
       localStorage.setItem("cs-items", JSON.stringify(items));
       localStorage.setItem("cs-outbox", JSON.stringify(outbox));
       localStorage.setItem("cs-tab", tab);
+      if (me) localStorage.setItem("cs-me", JSON.stringify(me));
       localStorage.setItem("cs-aisles", JSON.stringify(aisleMap));
     } catch {}
   };
@@ -36,6 +37,20 @@
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   const haptic = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
   const live = () => Object.values(items).filter((i) => !i.deleted);
+
+  // ---------- Who am I (stored on this device only) ----------
+  const COLORS = ["#007AFF", "#FF9500", "#AF52DE", "#FF2D55", "#30B0C7", "#5856D6", "#D4A900", "#A2845E", "#00A89F", "#8E8E93"];
+  let me = load("cs-me", null); // { name, color }
+  if (!me || typeof me.name !== "string" || !me.name.trim()) me = null;
+  const firstName = (n) => String(n).trim().split(/\s+/)[0];
+  const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+  // Reuse the colour this name already has on the list; otherwise take the first colour nobody uses.
+  function colorFor(name) {
+    const mine = live().find((i) => sameName(i.by, name) && i.color);
+    if (mine) return mine.color;
+    const used = new Set(live().filter((i) => i.by && !sameName(i.by, name)).map((i) => i.color));
+    return COLORS.find((c) => !used.has(c)) || COLORS[0];
+  }
 
   function save(item) {
     item.updatedAt = Math.max(Date.now(), (items[item.id]?.updatedAt || 0) + 1);
@@ -140,7 +155,7 @@
       <div class="row ${it.done ? "done" : ""}" data-act="edit">
         <button class="check" data-act="toggle" aria-label="${it.done ? "Mark as not bought" : "Mark as bought"}">${CHECK}</button>
         <div class="row-main">
-          <div class="row-title">${esc(it.name)}${it.qty ? ` <span class="row-qty">· ${esc(it.qty)}</span>` : ""}</div>
+          <div class="row-title">${it.by ? `<span class="who" style="background:${esc(it.color || "#8E8E93")}" title="Added by ${esc(it.by)}"></span>` : ""}${esc(it.name)}${it.qty ? ` <span class="row-qty">· ${esc(it.qty)}</span>` : ""}</div>
           ${tags.length ? `<div class="tags">${tags.join("")}</div>` : ""}
         </div>
         ${CHEV}
@@ -160,7 +175,9 @@
     const done = all.length - left;
     $("title").textContent = TITLES[tab];
     $("counts").textContent = all.length ? `${left} to buy` : "";
-    $("clearDone").hidden = done === 0;
+    $("clearDone").textContent = done ? `Clear ${done} Bought Item${done > 1 ? "s" : ""}` : "No Bought Items";
+    $("clearDone").disabled = done === 0;
+    $("me").innerHTML = me ? `<span class="dot" style="background:${esc(me.color)}"></span>${esc(firstName(me.name))}` : "";
     document.querySelectorAll(".tab").forEach((t) => {
       const on = t.dataset.tab === tab;
       t.classList.toggle("active", on);
@@ -243,7 +260,7 @@
 
   $("clearDone").addEventListener("click", () => {
     const done = live().filter((i) => i.done);
-    if (!done.length || !confirm(`Remove ${done.length} bought item${done.length > 1 ? "s" : ""} from the list?`)) return;
+    if (!done.length || !confirm(`Remove ${done.length} bought item${done.length > 1 ? "s" : ""} from the list for everyone?`)) return;
     for (const i of done) save({ id: i.id, deleted: true });
   });
 
@@ -321,7 +338,7 @@
     closeOpenRow();
     editing = item || null;
     $("sheetTitle").textContent = item ? "Edit Item" : "New Item";
-    $("saveBtn").textContent = item ? "Save" : "Add";
+    $("saveLabel").textContent = item ? "Save Changes" : "Add Item";
     $("deleteBtn").hidden = !item;
     $("fName").value = item?.name || "";
     $("fQty").value = item?.qty || "";
@@ -342,7 +359,7 @@
   function submit() {
     const name = $("fName").value.trim();
     if (!name || !selDay) { haptic(30); return; }
-    const base = editing ? { ...items[editing.id] } : { id: uid(), done: false, createdAt: Date.now() };
+    const base = editing ? { ...items[editing.id] } : { id: uid(), done: false, createdAt: Date.now(), by: me?.name || "", color: me?.color || "" };
     save({ ...base, name, qty: $("fQty").value.trim(), day: selDay, meal: selMeal });
     haptic(12);
     if (editing) { closeSheet(); return; }
@@ -355,12 +372,12 @@
 
   $("addBtn").addEventListener("click", () => { haptic(10); openSheet(); });
   $("cancelBtn").addEventListener("click", closeSheet);
-  $("backdrop").addEventListener("click", closeSheet);
+  $("backdrop").addEventListener("click", () => { if ($("settings").classList.contains("open")) closeSettings(); else closeSheet(); });
   $("saveBtn").addEventListener("click", submit);
   $("form").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
   $("form").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT") { e.preventDefault(); submit(); } });
   $("deleteBtn").addEventListener("click", () => { if (editing) { const id = editing.id; closeSheet(); remove(id); } });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeSheet(); closeSettings(); } });
 
   // Drag the sheet down by its grabber/header to dismiss.
   let sd = null;
@@ -389,8 +406,61 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), actionLabel ? 4500 : 1600);
   }
 
+  // ---------- Settings / welcome sheet ----------
+  let welcome = false, pickedColor = null;
+  function renderSwatches() {
+    $("swatches").innerHTML = COLORS.map((c) =>
+      `<button type="button" class="swatch ${c === pickedColor ? "on" : ""}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join("");
+  }
+  function refreshSettings() { $("settingsDone").disabled = !$("sName").value.trim(); }
+  function openSettings(isWelcome) {
+    closeOpenRow();
+    welcome = !!isWelcome;
+    $("settingsTitle").textContent = welcome ? "Welcome" : "Settings";
+    $("welcomeText").hidden = !welcome;
+    $("listSettings").hidden = welcome;
+    $("aboutText").textContent = `Version ${window.APP_VERSION || "dev"}`;
+    $("sName").value = me?.name || "";
+    pickedColor = me?.color || colorFor($("sName").value);
+    renderSwatches();
+    refreshSettings();
+    $("settings").classList.add("open");
+    $("backdrop").classList.add("open");
+    if (welcome) setTimeout(() => $("sName").focus(), 300);
+  }
+  function closeSettings(force) {
+    if (welcome && !force) return; // a name is required
+    document.activeElement?.blur();
+    $("settings").classList.remove("open");
+    if (!$("sheet").classList.contains("open")) $("backdrop").classList.remove("open");
+  }
+  function saveSettings() {
+    const name = $("sName").value.trim().replace(/\s+/g, " ");
+    if (!name) { haptic(30); return; }
+    me = { name, color: pickedColor || colorFor(name) };
+    // Keep every dot for this name the same colour.
+    for (const i of live()) if (sameName(i.by, name) && i.color !== me.color) save({ ...i, color: me.color });
+    persist();
+    haptic(10);
+    closeSettings(true);
+    render();
+  }
+  $("settingsBtn").addEventListener("click", () => openSettings(false));
+  $("settingsDone").addEventListener("click", saveSettings);
+  $("sName").addEventListener("input", () => {
+    // Suggest the colour this name already uses on the list, until the user picks one.
+    if (!me) { pickedColor = colorFor($("sName").value); renderSwatches(); }
+    refreshSettings();
+  });
+  $("sName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveSettings(); } });
+  $("swatches").addEventListener("click", (e) => {
+    const b = e.target.closest(".swatch"); if (!b) return;
+    haptic(5); pickedColor = b.dataset.color; renderSwatches();
+  });
+
   // ---------- Boot ----------
   $("ver").textContent = window.APP_VERSION || "";
+  if (!me) setTimeout(() => openSettings(true), 400);
   render();
   setStatus(online ? "syncing" : "offline");
   sync();
