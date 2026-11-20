@@ -18,14 +18,13 @@
 <body>
   <div id="app">
     <header class="nav" id="nav">
-      <div class="nav-bar">
-        <span class="sync" id="sync" aria-live="polite"></span>
-        <div class="nav-small-title" id="smallTitle">All Items</div>
+      <div class="nav-row">
+        <h1 class="title" id="title">All Items</h1>
+        <span class="meta"><span id="counts"></span><span class="sync" id="sync" aria-live="polite"></span><span class="ver" id="ver"></span></span>
         <button class="nav-btn" id="clearDone" hidden>Clear Bought</button>
       </div>
-      <h1 class="large-title" id="largeTitle">All Items</h1>
-      <p class="subtitle" id="subtitle"></p>
     </header>
+    <div class="ptr" id="ptr" aria-hidden="true"><div class="spinner"></div></div>
 
     <main id="content"></main>
 
@@ -80,6 +79,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="/version.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

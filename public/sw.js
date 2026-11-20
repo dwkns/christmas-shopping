@@ -1,8 +1,8 @@
 // App shell: network-first, so a new deploy shows on the next open.
 // Falls back to the cache when offline or when the network is slow (>3 s).
 // List data is held in localStorage by app.js.
-const CACHE = "cs-shell-v5";
-const SHELL = ["/", "/index.html", "/style.css", "/app.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-180.png", "/icons/icon-512.png"];
+const CACHE = "cs-shell-v6";
+const SHELL = ["/", "/index.html", "/style.css", "/app.js", "/version.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-180.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(

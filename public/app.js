@@ -158,8 +158,8 @@
     const all = live();
     const left = all.filter((i) => !i.done).length;
     const done = all.length - left;
-    $("largeTitle").textContent = $("smallTitle").textContent = TITLES[tab];
-    $("subtitle").textContent = all.length ? `${left} to buy · ${done} bought` : "";
+    $("title").textContent = TITLES[tab];
+    $("counts").textContent = all.length ? `${left} to buy` : "";
     $("clearDone").hidden = done === 0;
     document.querySelectorAll(".tab").forEach((t) => {
       const on = t.dataset.tab === tab;
@@ -198,8 +198,48 @@
     if (tab === "aisle") fetchAisles();
     window.scrollTo(0, 0);
   });
-  const onScroll = () => $("nav").classList.toggle("scrolled", window.scrollY > 40);
+  const onScroll = () => $("nav").classList.toggle("scrolled", window.scrollY > 4);
   window.addEventListener("scroll", onScroll, { passive: true });
+
+  // ---------- Pull to refresh ----------
+  const PTR_TRIGGER = 64;
+  let ptr = null, refreshing = false;
+  const ptrEl = $("ptr");
+  const setPull = (d) => {
+    ptrEl.style.transform = `translateY(${Math.min(d, 90) - 44}px)`;
+    ptrEl.style.opacity = Math.min(1, d / PTR_TRIGGER);
+    ptrEl.firstElementChild.style.transform = `rotate(${d * 4}deg)`;
+  };
+  window.addEventListener("touchstart", (e) => {
+    if (refreshing || window.scrollY > 0 || $("sheet").classList.contains("open") || e.touches.length > 1) return;
+    ptr = { y: e.touches[0].clientY, x: e.touches[0].clientX, d: 0, armed: false };
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (!ptr) return;
+    const dy = e.touches[0].clientY - ptr.y, dx = e.touches[0].clientX - ptr.x;
+    if (dy <= 0 || Math.abs(dx) > Math.abs(dy) || window.scrollY > 0) { if (dy < 0) { ptr = null; setPull(0); } return; }
+    ptr.d = dy * 0.5; // resistance
+    if (!ptr.armed && ptr.d >= PTR_TRIGGER) { ptr.armed = true; haptic(10); }
+    if (ptr.armed && ptr.d < PTR_TRIGGER) ptr.armed = false;
+    ptrEl.classList.remove("settle");
+    setPull(ptr.d);
+  }, { passive: true });
+  window.addEventListener("touchend", async () => {
+    if (!ptr) return;
+    const armed = ptr.armed;
+    ptr = null;
+    ptrEl.classList.add("settle");
+    if (!armed) { setPull(0); return; }
+    refreshing = true;
+    setPull(PTR_TRIGGER);
+    ptrEl.classList.add("spinning");
+    aisleFailAt = 0;
+    await Promise.all([sync(), new Promise((r) => setTimeout(r, 600))]);
+    await fetchAisles();
+    ptrEl.classList.remove("spinning");
+    setPull(0);
+    refreshing = false;
+  });
 
   $("clearDone").addEventListener("click", () => {
     const done = live().filter((i) => i.done);
@@ -228,7 +268,7 @@
     const row = e.target.closest(".row");
     if (!row || e.button > 0) return;
     if (openRow && openRow !== row) closeOpenRow();
-    drag = { row, x: e.clientX, y: e.clientY, base: row === openRow ? -88 : 0, dx: 0, active: false };
+    drag = { row, x: e.clientX, y: e.clientY, base: row === openRow ? -80 : 0, dx: 0, active: false };
   });
   window.addEventListener("pointermove", (e) => {
     if (!drag) return;
@@ -251,7 +291,7 @@
     setTimeout(() => (swiped = false), 50);
     row.classList.remove("dragging");
     if (dx < -180) { haptic(15); remove(row.parentElement.dataset.id); openRow = null; return; }
-    if (dx < -44) { row.style.transform = "translateX(-88px)"; openRow = row; }
+    if (dx < -44) { row.style.transform = "translateX(-80px)"; openRow = row; }
     else { row.style.transform = ""; if (openRow === row) openRow = null; }
   };
   window.addEventListener("pointerup", endDrag);
@@ -350,6 +390,7 @@
   }
 
   // ---------- Boot ----------
+  $("ver").textContent = window.APP_VERSION || "";
   render();
   setStatus(online ? "syncing" : "offline");
   sync();
