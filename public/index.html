@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Xmas List">
+  <title>Christmas Shopping</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="nav" id="nav">
+      <div class="nav-bar">
+        <span class="sync" id="sync" aria-live="polite"></span>
+        <div class="nav-small-title" id="smallTitle">All Items</div>
+        <button class="nav-btn" id="clearDone" hidden>Clear Bought</button>
+      </div>
+      <h1 class="large-title" id="largeTitle">All Items</h1>
+      <p class="subtitle" id="subtitle"></p>
+    </header>
+
+    <main id="content"></main>
+
+    <button class="fab" id="addBtn" aria-label="Add item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+      <span>Add</span>
+    </button>
+
+    <nav class="tabbar" role="tablist">
+      <button class="tab active" data-tab="all" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="6" r="1.4" fill="currentColor"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/></svg>
+        <span>All</span>
+      </button>
+      <button class="tab" data-tab="day" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>By Day</span>
+      </button>
+      <button class="tab" data-tab="meal" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v7a2 2 0 0 1-2 2v9M7 3v7a2 2 0 0 0 2 2v9M5 3v5M9 3v5M17 21V3c-2.5 1-4 4-4 8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>By Meal</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <button class="nav-btn" id="cancelBtn">Cancel</button>
+      <h2 id="sheetTitle">New Item</h2>
+      <button class="nav-btn strong" id="saveBtn" disabled>Add</button>
+    </div>
+    <form class="sheet-body" id="form" autocomplete="off">
+      <div class="group">
+        <input id="fName" class="field" placeholder="Item (e.g. Brussels sprouts)" maxlength="200" enterkeyhint="done">
+        <input id="fQty" class="field" placeholder="Quantity (optional)" maxlength="40" enterkeyhint="done">
+      </div>
+
+      <div class="group-label">Day <span class="req">Required</span></div>
+      <div class="chips" id="dayChips"></div>
+
+      <div class="group-label">Meal <span class="opt">Optional</span></div>
+      <div class="segmented" id="mealSeg"></div>
+
+      <button type="button" class="group danger" id="deleteBtn" hidden>Delete Item</button>
+    </form>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
