@@ -1,5 +1,5 @@
 // App shell cache: stale-while-revalidate. List data is held in localStorage by app.js.
-const CACHE = "cs-shell-v1";
+const CACHE = "cs-shell-v2";
 const SHELL = ["/", "/index.html", "/style.css", "/app.js", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-180.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

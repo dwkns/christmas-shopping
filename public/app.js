@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const DAYS = ["Thu", "Fri", "Sat", "Sun"];
   const DAY_NAMES = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday", Multiple: "Multiple Days" };
   const MEALS = ["Breakfast", "Lunch", "Dinner", "Snacks"];
   const TITLES = { all: "All Items", day: "By Day", meal: "By Meal" };
