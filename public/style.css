@@ -254,3 +254,6 @@ main { padding: 4px 16px calc(150px + var(--safe-b)); }
 .share-ico { width: 16px; height: 16px; vertical-align: -3px; color: #007aff; }
 .install-go { background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; padding: 7px 14px; border-radius: 16px; }
 .install-x { color: var(--label3); font-size: 16px; width: 28px; height: 28px; }
+.action { color: var(--accent); padding: 13px 16px; text-align: center; font-size: 17px; }
+.action:disabled { color: var(--green); }
+.steps { color: var(--label2); font-size: 14px; line-height: 1.6; margin: 10px 8px 0; }

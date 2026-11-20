@@ -420,6 +420,7 @@
     $("welcomeText").hidden = !welcome;
     $("listSettings").hidden = welcome;
     $("aboutText").textContent = `Version ${window.APP_VERSION || "dev"}`;
+    refreshInstallBtn();
     $("sName").value = me?.name || "";
     pickedColor = me?.color || colorFor($("sName").value);
     renderSwatches();
@@ -481,6 +482,25 @@
     await installEvent.userChoice.catch(() => {});
     installEvent = null;
     $("install").hidden = true;
+  });
+  function refreshInstallBtn() {
+    $("installBtn").textContent = standalone ? "Installed on Home Screen ✓" : "Add to Home Screen";
+    $("installBtn").disabled = standalone;
+    $("installSteps").hidden = true;
+  }
+  $("installBtn").addEventListener("click", async () => {
+    haptic(5);
+    if (installEvent) {
+      installEvent.prompt();
+      await installEvent.userChoice.catch(() => {});
+      installEvent = null;
+      $("install").hidden = true;
+      return;
+    }
+    $("installSteps").innerHTML = isIOS
+      ? `1. In Safari, tap ${SHARE_ICON} <b>Share</b>.<br>2. Scroll down and tap <b>Add to Home Screen</b>.<br>3. Open <b>Xmas List</b> from your Home Screen.`
+      : "Open your browser menu and choose <b>Install app</b> or <b>Add to Home screen</b>.";
+    $("installSteps").hidden = !$("installSteps").hidden;
   });
   $("installX").addEventListener("click", () => {
     try { localStorage.setItem("cs-install-x", "1"); } catch {}
