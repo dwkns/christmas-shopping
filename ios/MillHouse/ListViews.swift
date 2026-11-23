@@ -129,14 +129,11 @@ struct TodoView: View {
                     EmptyState(emoji: "✅", title: store.todoFilter == "mine" ? "Nothing for you to do" : "No to-dos yet",
                                text: "Tap + to give someone a job.")
                 } else {
-                    ForEach(TodoSection.allCases, id: \.self) { s in
-                        let list = sorted(visible.filter { TodoSection.of($0) == s }, s)
-                        if !list.isEmpty {
-                            Section {
-                                ForEach(list) { row($0) }
-                            } header: {
-                                SectionHeader(title: s.rawValue, items: list, word: "to do")
-                            }
+                    ForEach(groups, id: \.title) { g in
+                        Section {
+                            ForEach(g.items) { row($0) }
+                        } header: {
+                            SectionHeader(title: g.title, items: g.items, word: "to do")
                         }
                     }
                 }
@@ -157,9 +154,29 @@ struct TodoView: View {
         return all.filter { $0.assignee.isEmpty || (!myName.isEmpty && sameName($0.assignee, myName)) }
     }
 
-    private func sorted(_ list: [Item], _ s: TodoSection) -> [Item] {
-        if s == .done { return list.sorted { $0.updatedAt > $1.updatedAt } }
-        return list.sorted {
+    /// One section per person (me first, then everyone else A–Z, then Anyone), each sorted by due date with undated
+    /// ones last; ticked-off to-dos go in Done at the bottom, newest first.
+    private var groups: [(title: String, items: [Item])] {
+        let open = visible.filter { !$0.done }
+        let myName = store.me?.name ?? ""
+        var names: [String] = []
+        for t in open where !t.assignee.isEmpty && !names.contains(where: { sameName($0, t.assignee) }) { names.append(t.assignee) }
+        names.sort { a, b in
+            let am = !myName.isEmpty && sameName(a, myName), bm = !myName.isEmpty && sameName(b, myName)
+            return am != bm ? am : a.localizedCaseInsensitiveCompare(b) == .orderedAscending
+        }
+        var out: [(title: String, items: [Item])] = names.map { n in
+            (firstName(n), byDate(open.filter { sameName($0.assignee, n) }))
+        }
+        let anyone = open.filter { $0.assignee.isEmpty }
+        if !anyone.isEmpty { out.append(("Anyone", byDate(anyone))) }
+        let done = visible.filter(\.done).sorted { $0.updatedAt > $1.updatedAt }
+        if !done.isEmpty { out.append(("Done", done)) }
+        return out
+    }
+
+    private func byDate(_ list: [Item]) -> [Item] {
+        list.sorted {
             let a = $0.due.isEmpty ? "9999" : $0.due, b = $1.due.isEmpty ? "9999" : $1.due
             return a != b ? a < b : $0.name.localizedCompare($1.name) == .orderedAscending
         }
@@ -167,7 +184,8 @@ struct TodoView: View {
 
     private func row(_ t: Item) -> some View {
         let c = t.assignee.isEmpty ? Catalog.anyoneColor : (t.assigneeColor.isEmpty ? store.colorFor(t.assignee) : t.assigneeColor)
-        var tags = [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))]
+        // The section already names the person; only Done mixes people, so only there does the row say whose it was.
+        var tags = t.done ? [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))] : []
         if !t.due.isEmpty {
             let label: String
             let color: Color
@@ -235,6 +253,7 @@ struct CompactHeader: ToolbarContent {
                 if count > 0 { Text("\(count) \(word)").font(.system(size: 13)).foregroundStyle(.secondary).fixedSize() }
             }
         }
+        .sharedBackgroundVisibility(.hidden) // plain text, not a glass capsule
         ToolbarItem(placement: .topBarTrailing) {
             Button(action: add) { Image(systemName: "plus") .font(.system(size: 17, weight: .semibold)) }
                 .accessibilityLabel("Add")

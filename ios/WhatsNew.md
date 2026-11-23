@@ -1,1 +1,2 @@
-A reminder at 8am on the morning your to-dos are due, even without a connection.
+To-dos are grouped by person (you first, then Anyone) and sorted by due date.
+The title at the top no longer sits in a grey bubble.
