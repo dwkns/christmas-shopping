@@ -19,50 +19,53 @@
   <div id="app">
     <header class="nav" id="nav">
       <div class="nav-row">
-        <h1 class="title" id="title">All Items</h1>
+        <h1 class="title" id="title">Shopping</h1>
         <span class="meta"><span id="counts"></span><span class="sync" id="sync" aria-live="polite"></span><span class="me" id="me"></span><span class="ver" id="ver"></span></span>
-        <button class="icon-btn" id="settingsBtn" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="subtabs" id="shopTabs" role="tablist" aria-label="Shopping views">
+        <button class="subtab" data-sub="all">All</button>
+        <button class="subtab" data-sub="day">Day</button>
+        <button class="subtab" data-sub="meal">Meal</button>
+        <button class="subtab" data-sub="aisle">Aisle</button>
+      </div>
+      <div class="subtabs" id="todoTabs" role="tablist" aria-label="To-do filter" hidden>
+        <button class="subtab" data-filter="all">Everyone</button>
+        <button class="subtab" data-filter="mine">Mine</button>
       </div>
     </header>
     <div class="ptr" id="ptr" aria-hidden="true"><div class="spinner"></div></div>
 
-    <div class="install" id="install" hidden>
-      <div class="install-text"><b>Install the app</b><span id="installHow"></span></div>
-      <button class="install-go" id="installGo" hidden>Install</button>
-      <button class="install-x" id="installX" aria-label="Dismiss">✕</button>
-    </div>
     <main id="content"></main>
+    <main id="settingsPage" class="page" hidden></main>
 
-    <button class="fab" id="addBtn" aria-label="Add item">
+    <button class="fab" id="addBtn" aria-label="Add">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
-      <span>Add</span>
+      <span id="addLabel">Add</span>
     </button>
 
     <nav class="tabbar" role="tablist">
-      <button class="tab active" data-tab="all" role="tab" aria-selected="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="6" r="1.4" fill="currentColor"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/><circle cx="4" cy="18" r="1.4" fill="currentColor"/></svg>
-        <span>All</span>
-      </button>
-      <button class="tab" data-tab="day" role="tab" aria-selected="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>By Day</span>
-      </button>
-      <button class="tab" data-tab="meal" role="tab" aria-selected="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v7a2 2 0 0 1-2 2v9M7 3v7a2 2 0 0 0 2 2v9M5 3v5M9 3v5M17 21V3c-2.5 1-4 4-4 8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>By Meal</span>
-      </button>
-      <button class="tab" data-tab="aisle" role="tab" aria-selected="false">
+      <button class="tab" data-view="shop" role="tab">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 8H6.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20" r="1.5" fill="currentColor"/><circle cx="17.5" cy="20" r="1.5" fill="currentColor"/></svg>
-        <span>By Aisle</span>
+        <span>Shopping</span>
+      </button>
+      <button class="tab" data-view="todo" role="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12.2l2.7 2.7L16.2 9.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>To-do</span>
+      </button>
+      <button class="tab" data-view="settings" role="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.5 7.5 0 0 0 7 6.5l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 0 0 0 3l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 2.6-1.5l2.4 1 2-3.4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Settings</span>
       </button>
     </nav>
   </div>
 
   <div class="backdrop" id="backdrop"></div>
+
+  <!-- Shopping item sheet -->
   <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="grabber"></div>
     <div class="sheet-bar">
-      <button class="nav-btn" id="cancelBtn">Cancel</button>
+      <button class="nav-btn" data-close>Cancel</button>
       <h2 id="sheetTitle">New Item</h2>
       <span></span>
     </div>
@@ -84,33 +87,88 @@
     </div>
   </section>
 
-  <section class="sheet" id="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <!-- To-do sheet -->
+  <section class="sheet" id="todoSheet" role="dialog" aria-modal="true" aria-labelledby="todoTitle">
+    <div class="grabber"></div>
+    <div class="sheet-bar">
+      <button class="nav-btn" data-close>Cancel</button>
+      <h2 id="todoTitle">New To-do</h2>
+      <span></span>
+    </div>
+    <div class="sheet-body" id="todoForm">
+      <div class="group">
+        <input id="todoText" class="field" type="text" placeholder="To-do (e.g. Wrap presents)" maxlength="200" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" data-1p-ignore data-lpignore="true">
+      </div>
+
+      <div class="group-label">Who <span class="req">Required</span></div>
+      <div class="people" id="whoChips"></div>
+      <div class="group other-name" id="otherWrap" hidden>
+        <input id="otherName" class="field" type="text" placeholder="Their first name" maxlength="40" enterkeyhint="done" autocomplete="off" data-1p-ignore data-lpignore="true">
+      </div>
+
+      <div class="group-label">Do By <span class="opt">Optional</span></div>
+      <div class="due-row">
+        <button type="button" class="pill" data-due="today">Today</button>
+        <button type="button" class="pill" data-due="tomorrow">Tomorrow</button>
+        <label class="pill date-pill"><span id="dueText">Pick date</span><input id="dueDate" type="date"></label>
+        <button type="button" class="pill clear" id="dueClear" hidden>✕</button>
+      </div>
+
+      <button type="button" class="big-add" id="todoSave" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><span id="todoSaveLabel">Add To-do</span></button>
+
+      <button type="button" class="group danger" id="todoDelete" hidden>Delete To-do</button>
+    </div>
+  </section>
+
+  <!-- Welcome sheet: the settings body moves in here until a name is set -->
+  <section class="sheet" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
     <div class="grabber"></div>
     <div class="sheet-bar">
       <span></span>
-      <h2 id="settingsTitle">Settings</h2>
-      <button class="nav-btn strong" id="settingsDone">Done</button>
+      <h2 id="welcomeTitle">Welcome</h2>
+      <button class="nav-btn strong" id="welcomeDone" disabled>Done</button>
     </div>
-    <div class="sheet-body">
-      <p class="intro" id="welcomeText" hidden>Add your name. Everyone on the list sees who added each item.</p>
-      <div class="group-label">Your Name</div>
-      <div class="group"><input id="sName" class="field" placeholder="First name" maxlength="40" autocomplete="given-name" enterkeyhint="done"></div>
-      <div class="group-label">Your Colour</div>
-      <div class="swatches" id="swatches"></div>
-      <div id="listSettings">
-        <div class="group-label">App</div>
-        <button type="button" class="group action" id="installBtn">Add to Home Screen</button>
-        <p class="steps" id="installSteps" hidden></p>
-        <div class="group-label">List</div>
-        <button type="button" class="group danger" id="clearDone">Clear Bought Items</button>
-        <p class="footnote" id="aboutText"></p>
-      </div>
+    <div class="sheet-body" id="welcomeBody"></div>
+  </section>
+
+  <!-- Settings content (moved between the Settings tab and the welcome sheet) -->
+  <div id="settingsBody">
+    <p class="intro" id="welcomeText" hidden>Add your name. Everyone on the list sees who added each item and who each to-do is for.</p>
+    <div class="group-label">Your Name</div>
+    <div class="group"><input id="sName" class="field" placeholder="First name" maxlength="40" autocomplete="given-name" enterkeyhint="done"></div>
+    <div class="group-label">Your Colour</div>
+    <div class="swatches" id="swatches"></div>
+    <div id="moreSettings">
+      <div class="group-label">Notifications</div>
+      <button type="button" class="group action" id="notifyBtn">Turn On Notifications</button>
+      <button type="button" class="group action secondary" id="notifyTest" hidden>Send a Test Notification</button>
+      <p class="steps" id="notifyNote"></p>
+      <div class="group-label">App</div>
+      <button type="button" class="group action" id="installBtn">Add to Home Screen</button>
+      <p class="steps" id="installSteps" hidden></p>
+      <div class="group-label">Lists</div>
+      <button type="button" class="group danger" id="clearDone">Clear Bought Items</button>
+      <button type="button" class="group danger second" id="clearTodos">Clear Done To-dos</button>
+      <p class="footnote" id="aboutText"></p>
+    </div>
+  </div>
+
+  <!-- Install guide: shown when the app is opened in a browser instead of from the Home Screen -->
+  <section class="guide" id="guide" hidden aria-labelledby="guideTitle">
+    <div class="guide-inner">
+      <img class="guide-icon" src="/icons/icon-180.png" alt="" width="72" height="72">
+      <h1 id="guideTitle">Add Xmas List to your Home Screen</h1>
+      <p class="guide-lead">This app is designed to run from your Home Screen. There it opens full screen, works offline and can send you notifications.</p>
+      <button class="big-add" id="guideInstall" hidden>Install Now</button>
+      <ol class="guide-steps" id="guideSteps"></ol>
+      <button class="guide-skip" id="guideSkip">Continue in the browser</button>
     </div>
   </section>
 
   <div class="toast" id="toast"></div>
 
   <script src="/version.js"></script>
+  <script src="/illustrations.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

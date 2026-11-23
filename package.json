@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.11.0",
     "@netlify/blobs": "^11.1.9",
+    "web-push": "^4.0.0",
     "zod": "^4.6.7"
   }
 }
