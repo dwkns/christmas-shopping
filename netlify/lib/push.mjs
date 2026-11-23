@@ -2,7 +2,7 @@
 // one blob per device, keyed by a hash of the push endpoint.
 import { createHash } from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import webpush from "web-push";
+import * as webpush from "web-push";
 
 export const subStore = () => getStore({ name: "push-subs", consistency: "strong" });
 export const subKey = (endpoint) => createHash("sha256").update(String(endpoint)).digest("hex");
