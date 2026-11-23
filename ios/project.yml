@@ -1,0 +1,52 @@
+name: MillHouse
+options:
+  bundleIdPrefix: com.dwkns
+  deploymentTarget: { iOS: "17.0" }
+  xcodeVersion: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: LD2427W529
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    # One version number, bumped and committed by scripts/release-ios.sh.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "0.1.0"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+targets:
+  MillHouse:
+    type: application
+    platform: iOS
+    sources: [MillHouse]
+    info:
+      path: MillHouse/Info.plist
+      properties:
+        # The public name, for now (docs/ios-plan.md): the project and bundle stay Mill House.
+        CFBundleDisplayName: Xmas List
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: MillHouse/MillHouse.entitlements
+      properties:
+        # Development, like every Lifts build (development-signed, installed directly or over the air).
+        aps-environment: development
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dwkns.millhouse
+        TARGETED_DEVICE_FAMILY: "1"
+  MillHouseTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [MillHouseTests]
+    dependencies: [{ target: MillHouse }]
+    settings: { base: { GENERATE_INFOPLIST_FILE: YES } }
+schemes:
+  MillHouse:
+    build: { targets: { MillHouse: all, MillHouseTests: [test] } }
+    run: { config: Debug }
+    test: { config: Debug, targets: [MillHouseTests] }
+    archive: { config: Release }

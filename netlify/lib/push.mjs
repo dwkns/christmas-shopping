@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import * as webpush from "web-push";
+import { allDevices, sendAPNs } from "./apns.mjs";
 
 export const subStore = () => getStore({ name: "push-subs", consistency: "strong" });
 export const subKey = (endpoint) => createHash("sha256").update(String(endpoint)).digest("hex");
@@ -22,16 +23,31 @@ function configure() {
   return true;
 }
 
-// All saved subscriptions: [{ key, subscription, name }]
+// Everyone to notify: web-push subscriptions ({ kind: "web", key, subscription, name }) and iOS app devices
+// ({ kind: "apns", key, token, name, env }). Callers filter by name and pass the result to send().
 export async function allSubs() {
+  const [web, apns] = await Promise.all([webSubs(), allDevices().catch((e) => { console.error("apns list", e); return []; })]);
+  // Someone with the iOS app gets its notifications instead of the web app's, so a phone with both buzzes once.
+  return [...web.filter((w) => !apns.some((a) => sameName(a.name, w.name))), ...apns];
+}
+
+async function webSubs() {
   const s = subStore();
   const { blobs } = await s.list();
-  const subs = await Promise.all(blobs.map(async (b) => ({ key: b.key, ...(await s.get(b.key, { type: "json" })) })));
+  const subs = await Promise.all(blobs.map(async (b) => ({ kind: "web", key: b.key, ...(await s.get(b.key, { type: "json" })) })));
   return subs.filter((x) => x.subscription?.endpoint);
 }
 
-// Send one payload to many subscriptions. Removes subscriptions the push service says are gone.
+// Send one payload ({ title, body, url, tag }) to a mixed list from allSubs(), each through its own channel.
 export async function send(subs, payload) {
+  const apns = subs.filter((x) => x.kind === "apns");
+  const web = subs.filter((x) => x.kind !== "apns");
+  const [a, w] = await Promise.all([sendAPNs(apns, payload), sendWeb(web, payload)]);
+  return { sent: a.sent + w.sent };
+}
+
+// Web Push. Removes subscriptions the push service says are gone.
+async function sendWeb(subs, payload) {
   if (!configure() || !subs.length) return { sent: 0 };
   const s = subStore();
   let sent = 0;

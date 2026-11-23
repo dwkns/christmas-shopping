@@ -1,2 +1,11 @@
 node_modules
 .netlify
+
+# ios
+ios/MillHouse.xcodeproj/
+ios/build/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.p8
+.secrets
