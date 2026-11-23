@@ -1,6 +1,6 @@
 # Mill House: iOS app plan
 
-Status: decided 2026-11-23, not started. Development happens on the Mac mini (dwkns-mini), which has Xcode.
+Status: decided 2026-11-23, not started. Development happens on the Mac mini (dwkns-mini, `~/Developer/mill-house`), which has Xcode.
 
 Naming: the project is **Mill House** (repo, Xcode project, bundle id, code). The public name stays
 **Christmas Shopping** for now (Home Screen name "Xmas List"); it will change later.
@@ -17,7 +17,7 @@ Naming: the project is **Mill House** (repo, Xcode project, bundle id, code). Th
 
 ## Follow the Lifts conventions
 
-Copy the setup from `dwkns/lifts` rather than inventing a new one:
+Copy the setup from `dwkns/lifts` (on the mini: `~/Developer/lifts`) rather than inventing a new one:
 
 - `ios/project.yml` for XcodeGen. Team `LD2427W529`, `bundleIdPrefix: com.dwkns`, iOS 17, `CODE_SIGN_STYLE: Automatic`.
   Project and target name: `MillHouse`. Bundle id: `com.dwkns.millhouse`. Display name (public, for now): `Xmas List`.
