@@ -51,3 +51,36 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(i.dayKey, "All")
     }
 }
+
+final class DueReminderTests: XCTestCase {
+    private func todo(_ name: String, due: String, assignee: String = "", done: Bool = false) -> Item {
+        var t = Item(id: "t" + name.lowercased() + "xxxxx", type: "todo")
+        t.name = name; t.due = due; t.assignee = assignee; t.done = done
+        return t
+    }
+
+    private func at(_ ymd: String, hour: Int) -> Date {
+        var c = Calendar.current.dateComponents([.year, .month, .day], from: Day.date(ymd)!)
+        c.hour = hour
+        return Calendar.current.date(from: c)!
+    }
+
+    func testOneReminderPerDayForMeAndAnyone() {
+        let todos = [todo("Wrap", due: "2026-12-24"), todo("Carve", due: "2026-12-24", assignee: "Darrell"),
+                     todo("Helen's", due: "2026-12-24", assignee: "Helen"), todo("Done", due: "2026-12-24", done: true),
+                     todo("Later", due: "2026-12-26")]
+        let plan = DueReminders.plan(todos: todos, me: "Darrell", now: at("2026-12-20", hour: 9))
+        XCTAssertEqual(plan.map(\.day), ["2026-12-24", "2026-12-26"])
+        XCTAssertEqual(plan[0].title, "2 to-dos due today")
+        XCTAssertFalse(plan[0].body.contains("Helen's"))
+    }
+
+    func testOverdueJoinTheNextMorning() {
+        let todos = [todo("Old", due: "2026-12-18"), todo("Today", due: "2026-12-20")]
+        let before8 = DueReminders.plan(todos: todos, me: "D", now: at("2026-12-20", hour: 7))
+        XCTAssertEqual(before8.map(\.day), ["2026-12-20"])
+        XCTAssertEqual(before8[0].title, "2 to-dos due (1 overdue)")
+        let after8 = DueReminders.plan(todos: todos, me: "D", now: at("2026-12-20", hour: 9))
+        XCTAssertEqual(after8.map(\.day), ["2026-12-21"])
+    }
+}

@@ -1,6 +1,6 @@
 # Mill House: iOS app plan
 
-Status: decided 2026-11-23, not started. Development happens on the Mac mini (dwkns-mini, `~/Developer/mill-house`), which has Xcode.
+Status: decided 2026-11-23; version 1 built and on two phones (0.1.1, over-the-air updates working). Development happens on the Mac mini (dwkns-mini, `~/Developer/mill-house`), which has Xcode.
 
 Naming: the project is **Mill House** (repo, Xcode project, bundle id, code). The public name stays
 **Christmas Shopping** for now (Home Screen name "Xmas List"); it will change later.
@@ -13,7 +13,8 @@ Naming: the project is **Mill House** (repo, Xcode project, bundle id, code). Th
 | Backend | Keep Netlify. The iOS app uses the same API as the web app, so both share one list. |
 | Web app | Stays live while people move to the iOS app. Long term the project is iOS only. The Netlify URL stays `christmas-shopping-uovm.netlify.app` (renaming it would break installed web apps). |
 | Distribution | Ad hoc + over-the-air updates, the same way as `dwkns/lifts` (no TestFlight). |
-| Version 1 scope | Feature parity with the web app, plus "live notifications when items are due" (see Open questions). |
+| Version 1 scope | Feature parity with the web app, plus a morning reminder when to-dos are due. |
+| Due notifications | One local notification at 08:00 on the day a to-do is due (mine or Anyone's), one per day listing that day's to-dos, overdue ones added to the next morning. Scheduled on the phone (`ios/MillHouse/DueReminders.swift`), rescheduled after every sync. No due times, no Live Activities. The server's 08:00 UTC reminder is web push only, so iOS users do not get it twice. Decided 2026-11-23. |
 
 ## Follow the Lifts conventions
 
@@ -80,12 +81,9 @@ Events: someone else adds shopping; a to-do is assigned to you; to-dos due today
 2. **iOS app, version 1:** Shopping (All / Day / Meal / Aisle), To-do (Everyone / Mine; Overdue, Today, Tomorrow,
    Later, No Date, Done), Settings (name, colour, notifications, clear bought / done). Offline store, outbox sync,
    pull to refresh, swipe to delete, coloured person dots, version number shown in the app.
-3. **Due notifications** (see Open questions).
+3. **Due notifications:** local 08:00 reminders (see Decisions).
 4. **Distribution:** adapt the Lifts scripts; host the IPA and manifest on Netlify; register the family's phones.
 
 ## Open questions for the user
 
-- "Live notifications when items are due": local notifications scheduled on the phone at the due time, a Live
-  Activity / lock-screen countdown, or both? A due *time* (not only a date) would be needed for anything beyond a
-  morning reminder.
-- App icon: reuse the web icon (`public/icons/icon.svg`) or a new design?
+- App icon: reuse the web icon (`public/icons/icon.svg`, used for now) or a new design?

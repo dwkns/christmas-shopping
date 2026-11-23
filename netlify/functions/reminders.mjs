@@ -1,6 +1,8 @@
 // Daily to-do reminders at 08:00 UTC (8am in the UK in winter, 9am in summer).
 // Each person gets one notification listing their to-dos that are due today or overdue.
 // To-dos for "Anyone" go to everyone.
+// Web push only: the iOS app schedules its own 08:00 reminder on the phone (ios/MillHouse/DueReminders.swift), so its
+// APNs devices are left out here, or they would get the reminder twice.
 import { getStore } from "@netlify/blobs";
 import { allSubs, dueLabel, sameName, send, todayUK } from "../lib/push.mjs";
 
@@ -12,7 +14,7 @@ export default async () => {
   const due = all.filter((i) => !i.deleted && i.type === "todo" && !i.done && i.due && i.due <= today);
   if (!due.length) return;
 
-  const subs = await allSubs();
+  const subs = (await allSubs()).filter((s) => s.kind !== "apns");
   await Promise.all(subs.map((sub) => {
     const mine = due.filter((t) => !t.assignee || sameName(t.assignee, sub.name));
     if (!mine.length) return null;

@@ -1,4 +1,1 @@
-A tighter layout, like the web app: smaller rows, the title and sync status in one line, tags beside each item.
-The to-do calendar is always showing; Today and Tomorrow are shortcuts.
-Adding an item or a to-do closes the sheet.
-Updates arrive in the app: a bar above the tabs offers each new version, and What’s New shows once it installs.
+A reminder at 8am on the morning your to-dos are due, even without a connection.

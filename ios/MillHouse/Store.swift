@@ -107,7 +107,10 @@ final class Store: ObservableObject {
         items[item.id] = item
         outbox[item.id] = item
         persist()
-        Task { await sync() }
+        Task {
+            await DueReminders.reschedule(todos: todoItems, me: me?.name ?? "")
+            await sync()
+        }
     }
 
     func toggle(_ item: Item) {
@@ -193,6 +196,7 @@ final class Store: ObservableObject {
             mergeRemote(all.items, into: &items, outbox: &outbox)
             persist()
             syncState = outbox.isEmpty ? .synced : .syncing
+            await DueReminders.reschedule(todos: todoItems, me: me?.name ?? "")
             await fetchAisles()
         } catch {
             syncState = .offline

@@ -32,7 +32,10 @@ final class Push: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
         self.store = store
         let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         await refreshStatus()
-        if granted { UIApplication.shared.registerForRemoteNotifications() }
+        if granted {
+            UIApplication.shared.registerForRemoteNotifications()
+            await DueReminders.reschedule(todos: store.todoItems, me: store.me?.name ?? "")
+        }
         return granted
     }
 
@@ -47,6 +50,10 @@ final class Push: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
         if let token { _ = try? await post(["action": "unregister", "token": token]) }
         UIApplication.shared.unregisterForRemoteNotifications()
         token = nil
+        // Off means off: the morning reminders go too (the system permission stays, so remove them here).
+        let center = UNUserNotificationCenter.current()
+        let due = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(DueReminders.prefix) }
+        center.removePendingNotificationRequests(withIdentifiers: due)
     }
 
     func didRegister(_ deviceToken: Data) {
