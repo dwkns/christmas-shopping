@@ -41,7 +41,7 @@ struct ItemSheet: View {
             .navigationTitle(item == nil ? "New Item" : "Edit Item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(item == nil ? "Done" : "Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(item == nil ? "Add" : "Save", action: submit).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -77,12 +77,8 @@ struct ItemSheet: View {
         base.day = day
         base.meal = meal
         store.save(base)
-        if item != nil { dismiss(); return }
-        // Stay open for the next item, like the web app.
-        store.toast = .init(message: "Added “\(n)”")
-        name = ""
-        qty = ""
-        focused = true
+        if item == nil { store.toast = .init(message: "Added “\(n)”") }
+        dismiss()
     }
 }
 
@@ -116,7 +112,6 @@ struct TodoSheet: View {
     @State private var otherMode = false
     @State private var otherName = ""
     @State private var due = ""
-    @State private var pickDate = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -136,11 +131,10 @@ struct TodoSheet: View {
                             Button("Clear") { due = "" }.font(.subheadline)
                         }
                     }
-                    Toggle("Pick a date", isOn: $pickDate)
-                    if pickDate {
-                        DatePicker("Date", selection: dateBinding, displayedComponents: .date).datePickerStyle(.graphical)
-                    }
-                    if !due.isEmpty { Text("Due \(Day.label(due))").foregroundStyle(.secondary) }
+                    DatePicker("Date", selection: dateBinding, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                    Text(due.isEmpty ? "No due date" : "Due \(Day.label(due))").foregroundStyle(.secondary)
                 }
                 if todo != nil {
                     Section {
@@ -154,7 +148,7 @@ struct TodoSheet: View {
             .navigationTitle(todo == nil ? "New To-do" : "Edit To-do")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(todo == nil ? "Done" : "Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button(todo == nil ? "Add" : "Save", action: submit).disabled(!valid) }
             }
             .onAppear {
@@ -210,11 +204,8 @@ struct TodoSheet: View {
         base.assignee = a
         base.due = due
         store.save(base)
-        if todo != nil { dismiss(); return }
-        store.toast = .init(message: "Added “\(n)”")
-        name = ""
-        if otherMode { who = a; otherMode = false; otherName = "" }
-        focused = true
+        if todo == nil { store.toast = .init(message: "Added “\(n)”") }
+        dismiss()
     }
 }
 
