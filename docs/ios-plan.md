@@ -1,6 +1,9 @@
-# iOS app plan
+# Mill House: iOS app plan
 
 Status: decided 2026-11-23, not started. Development happens on the Mac mini (dwkns-mini), which has Xcode.
+
+Naming: the project is **Mill House** (repo, Xcode project, bundle id, code). The public name stays
+**Christmas Shopping** for now (Home Screen name "Xmas List"); it will change later.
 
 ## Decisions
 
@@ -8,7 +11,7 @@ Status: decided 2026-11-23, not started. Development happens on the Mac mini (dw
 |---|---|
 | Platform | Native iOS app (SwiftUI). Everyone uses an iPhone; no Android. |
 | Backend | Keep Netlify. The iOS app uses the same API as the web app, so both share one list. |
-| Web app | Stays live alongside the iOS app, as a fallback and for computers. |
+| Web app | Stays live while people move to the iOS app. Long term the project is iOS only. The Netlify URL stays `christmas-shopping-uovm.netlify.app` (renaming it would break installed web apps). |
 | Distribution | Ad hoc + over-the-air updates, the same way as `dwkns/lifts` (no TestFlight). |
 | Version 1 scope | Feature parity with the web app, plus "live notifications when items are due" (see Open questions). |
 
@@ -17,7 +20,7 @@ Status: decided 2026-11-23, not started. Development happens on the Mac mini (dw
 Copy the setup from `dwkns/lifts` rather than inventing a new one:
 
 - `ios/project.yml` for XcodeGen. Team `LD2427W529`, `bundleIdPrefix: com.dwkns`, iOS 17, `CODE_SIGN_STYLE: Automatic`.
-  Suggested bundle id: `com.dwkns.xmaslist`. Display name: `Xmas List`.
+  Project and target name: `MillHouse`. Bundle id: `com.dwkns.millhouse`. Display name (public, for now): `Xmas List`.
 - One version number (`MARKETING_VERSION` = `CURRENT_PROJECT_VERSION`), bumped by the release script.
 - Scripts adapted from Lifts: `scripts/secrets.sh` (App Store Connect API key from 1Password, "Lift - Apple"),
   `scripts/add-device.sh` (register a phone UDID), `scripts/ship-ios.sh` (build and install on a paired phone),

@@ -1,6 +1,10 @@
-# Christmas Shopping
+# Mill House
 
-A shared Christmas shopping list. Anyone with the link can add, edit and delete items.
+Mill House is the project name. The app's public name is still **Christmas Shopping** (Home Screen name "Xmas List").
+
+A shared shopping list and to-do list for the household. Anyone with the link can add, edit and delete items.
+The web app is live at https://christmas-shopping-uovm.netlify.app. A native iOS app is planned
+(see `docs/ios-plan.md`); long term the project will be iOS only.
 
 - Static app in `public/` (HTML, CSS, vanilla JS). No build step.
 - `netlify/functions/items.mjs` stores each item as one Netlify Blob (`shopping-items` store).
