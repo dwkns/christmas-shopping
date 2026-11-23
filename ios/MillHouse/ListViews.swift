@@ -37,6 +37,8 @@ struct RootView: View {
         .overlay(alignment: .bottom) { ToastView() }
         .onChange(of: store.shopTab) { _, _ in store.persist() }
         .onChange(of: store.todoFilter) { _, _ in store.persist() }
+        .onChange(of: store.todoGroup) { _, _ in store.persist() }
+        .onChange(of: store.todoSort) { _, _ in store.persist() }
     }
 }
 
@@ -126,7 +128,7 @@ struct TodoView: View {
         NavigationStack {
             TightList {
                 if visible.isEmpty {
-                    EmptyState(emoji: "✅", title: store.todoFilter == "mine" ? "Nothing for you to do" : "No to-dos yet",
+                    EmptyState(emoji: "✅", title: store.todoFilter == "all" ? "No to-dos yet" : "Nothing here to do",
                                text: "Tap + to give someone a job.")
                 } else {
                     ForEach(groups, id: \.title) { g in
@@ -138,7 +140,7 @@ struct TodoView: View {
                     }
                 }
             } top: {
-                SubTabs(selection: $store.todoFilter, options: [("all", "Everyone"), ("mine", "Mine")])
+                TodoControls(names: assignees)
             }
             .refreshable { await store.sync() }
             .toolbar { CompactHeader(title: "To-do", count: store.todoItems.filter { !$0.done }.count, word: "to do") { adding = true } }
@@ -147,45 +149,73 @@ struct TodoView: View {
         }
     }
 
-    private var visible: [Item] {
-        let all = store.todoItems
-        guard store.todoFilter == "mine" else { return all }
-        let myName = store.me?.name ?? ""
-        return all.filter { $0.assignee.isEmpty || (!myName.isEmpty && sameName($0.assignee, myName)) }
-    }
-
-    /// One section per person (me first, then everyone else A–Z, then Anyone), each sorted by due date with undated
-    /// ones last; ticked-off to-dos go in Done at the bottom, newest first.
-    private var groups: [(title: String, items: [Item])] {
-        let open = visible.filter { !$0.done }
+    /// Everyone with a to-do, me first then A–Z.
+    private var assignees: [String] {
         let myName = store.me?.name ?? ""
         var names: [String] = []
-        for t in open where !t.assignee.isEmpty && !names.contains(where: { sameName($0, t.assignee) }) { names.append(t.assignee) }
-        names.sort { a, b in
+        for t in store.todoItems where !t.assignee.isEmpty && !names.contains(where: { sameName($0, t.assignee) }) {
+            names.append(t.assignee)
+        }
+        return names.sorted { a, b in
             let am = !myName.isEmpty && sameName(a, myName), bm = !myName.isEmpty && sameName(b, myName)
             return am != bm ? am : a.localizedCaseInsensitiveCompare(b) == .orderedAscending
         }
-        var out: [(title: String, items: [Item])] = names.map { n in
-            (firstName(n), byDate(open.filter { sameName($0.assignee, n) }))
+    }
+
+    private var visible: [Item] {
+        let all = store.todoItems
+        let myName = store.me?.name ?? ""
+        switch store.todoFilter {
+        case "all": return all
+        case "mine": return all.filter { $0.assignee.isEmpty || (!myName.isEmpty && sameName($0.assignee, myName)) }
+        case "anyone": return all.filter { $0.assignee.isEmpty }
+        case let name: return all.filter { sameName($0.assignee, name) }
         }
-        let anyone = open.filter { $0.assignee.isEmpty }
-        if !anyone.isEmpty { out.append(("Anyone", byDate(anyone))) }
+    }
+
+    /// Sections from the Group control, each sorted by the Sort control; ticked-off to-dos always go in Done at the
+    /// bottom, newest first.
+    private var groups: [(title: String, items: [Item])] {
+        let open = visible.filter { !$0.done }
+        var out: [(title: String, items: [Item])] = []
+        switch store.todoGroup {
+        case "person":
+            for n in assignees {
+                let list = open.filter { sameName($0.assignee, n) }
+                if !list.isEmpty { out.append((firstName(n), sorted(list))) }
+            }
+            let anyone = open.filter { $0.assignee.isEmpty }
+            if !anyone.isEmpty { out.append(("Anyone", sorted(anyone))) }
+        case "due":
+            for s in TodoSection.allCases where s != .done {
+                let list = open.filter { TodoSection.of($0) == s }
+                if !list.isEmpty { out.append((s.rawValue, sorted(list))) }
+            }
+        default:
+            if !open.isEmpty { out.append(("To do", sorted(open))) }
+        }
         let done = visible.filter(\.done).sorted { $0.updatedAt > $1.updatedAt }
         if !done.isEmpty { out.append(("Done", done)) }
         return out
     }
 
-    private func byDate(_ list: [Item]) -> [Item] {
-        list.sorted {
-            let a = $0.due.isEmpty ? "9999" : $0.due, b = $1.due.isEmpty ? "9999" : $1.due
-            return a != b ? a < b : $0.name.localizedCompare($1.name) == .orderedAscending
+    private func sorted(_ list: [Item]) -> [Item] {
+        let byName: (Item, Item) -> Bool = { $0.name.localizedCompare($1.name) == .orderedAscending }
+        switch store.todoSort {
+        case "added": return list.sorted { $0.createdAt != $1.createdAt ? $0.createdAt > $1.createdAt : byName($0, $1) }
+        case "name": return list.sorted(by: byName)
+        default:
+            return list.sorted {
+                let a = $0.due.isEmpty ? "9999" : $0.due, b = $1.due.isEmpty ? "9999" : $1.due
+                return a != b ? a < b : byName($0, $1)
+            }
         }
     }
 
     private func row(_ t: Item) -> some View {
         let c = t.assignee.isEmpty ? Catalog.anyoneColor : (t.assigneeColor.isEmpty ? store.colorFor(t.assignee) : t.assigneeColor)
         // The section already names the person; only Done mixes people, so only there does the row say whose it was.
-        var tags = t.done ? [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))] : []
+        var tags = (t.done || store.todoGroup != "person") ? [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))] : []
         if !t.due.isEmpty {
             let label: String
             let color: Color
@@ -198,6 +228,46 @@ struct TodoView: View {
             tags.append(Tag(text: label, color: t.done ? .secondary : color))
         }
         return ItemRow(item: t, dot: c, detail: "", tags: tags) { editing = t }
+    }
+}
+
+/// Three pull-down menus in a row above the to-do list: who to show, how to group, how to sort.
+struct TodoControls: View {
+    @EnvironmentObject var store: Store
+    let names: [String]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            control("Show", $store.todoFilter, [("all", "Everyone"), ("mine", "Mine")]
+                    + shown.map { ($0, firstName($0)) } + [("anyone", "Anyone")])
+            control("Group", $store.todoGroup, [("person", "Person"), ("due", "Due"), ("none", "None")])
+            control("Sort", $store.todoSort, [("due", "Due date"), ("added", "Newest"), ("name", "A–Z")])
+        }
+        .sensoryFeedback(.selection, trigger: store.todoFilter + store.todoGroup + store.todoSort)
+    }
+
+    /// The people, plus the one chosen before, so the menu still names them once their to-dos are all gone.
+    private var shown: [String] {
+        let f = store.todoFilter
+        return ["all", "mine", "anyone"].contains(f) || names.contains(where: { sameName($0, f) }) ? names : names + [f]
+    }
+
+    private func control(_ label: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
+        Menu {
+            Picker(label, selection: value) {
+                ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(label + ":").foregroundStyle(.secondary)
+                Text(options.first { $0.0 == value.wrappedValue }?.1 ?? options[0].1).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 10).frame(height: 30).frame(maxWidth: .infinity)
+            .background(Color(.tertiarySystemFill), in: Capsule())
+        }
     }
 }
 

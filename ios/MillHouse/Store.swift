@@ -16,7 +16,9 @@ final class Store: ObservableObject {
     @Published var me: Person?
     @Published var tab: Tab = .shop
     @Published var shopTab: String = "all"
-    @Published var todoFilter: String = "all"
+    @Published var todoFilter: String = "all"   // all, mine, anyone, or a person's name
+    @Published var todoGroup: String = "person" // person, due, none
+    @Published var todoSort: String = "due"     // due, added, name
     @Published private(set) var syncState: SyncState = .syncing
     @Published private(set) var aisleBusy = false
     @Published var toast: Toast?
@@ -35,6 +37,8 @@ final class Store: ObservableObject {
         var me: Person?
         var shopTab: String?
         var todoFilter: String?
+        var todoGroup: String?
+        var todoSort: String?
     }
 
     private let file: URL
@@ -54,11 +58,14 @@ final class Store: ObservableObject {
             me = s.me
             shopTab = s.shopTab ?? "all"
             todoFilter = s.todoFilter ?? "all"
+            todoGroup = s.todoGroup ?? "person"
+            todoSort = s.todoSort ?? "due"
         }
     }
 
     func persist() {
-        let s = Saved(items: items, outbox: outbox, aisleMap: aisleMap, me: me, shopTab: shopTab, todoFilter: todoFilter)
+        let s = Saved(items: items, outbox: outbox, aisleMap: aisleMap, me: me, shopTab: shopTab, todoFilter: todoFilter,
+                      todoGroup: todoGroup, todoSort: todoSort)
         if let data = try? JSONEncoder().encode(s) { try? data.write(to: file, options: .atomic) }
     }
 
