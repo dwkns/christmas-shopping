@@ -1,8 +1,18 @@
+import AppUpdates
 import SwiftUI
+
+/// Sizes and colours from the web app (public/style.css), so the lists look as tight as they did there.
+enum Look {
+    static let accent = Color("AccentColor")                 // --accent #d1242f
+    static let green = Color(red: 0x1F / 255, green: 0x8A / 255, blue: 0x4C / 255) // --green #1f8a4c
+    static let rowHeight: CGFloat = 40                       // .row min-height
+    static let rowInsets = EdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
+    static let check: CGFloat = 24                           // .check
+    static let dot: CGFloat = 8                              // .who
+}
 
 struct RootView: View {
     @EnvironmentObject var store: Store
-    @State private var whatsNew: String?
 
     var body: some View {
         TabView(selection: $store.tab) {
@@ -22,13 +32,8 @@ struct RootView: View {
         .sheet(isPresented: .constant(store.me == nil)) {
             NavigationStack { WelcomeView() }.interactiveDismissDisabled()
         }
-        .sheet(isPresented: Binding(get: { whatsNew != nil && store.me != nil }, set: { if !$0 { whatsNew = nil } })) {
-            WhatsNewView(version: Updates.shared.version, notes: whatsNew ?? "")
-        }
-        .task {
-            whatsNew = Updates.shared.notesForFirstLaunch()
-            await Updates.shared.check()
-        }
+        // What's New, the launch and foreground checks and polling; the bar itself is placed in each tab (updateBar()).
+        .appUpdates(AppUpdater.shared, bar: false)
         .overlay(alignment: .bottom) { ToastView() }
         .onChange(of: store.shopTab) { _, _ in store.persist() }
         .onChange(of: store.todoFilter) { _, _ in store.persist() }
@@ -44,18 +49,7 @@ struct ShopView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Picker("Group by", selection: $store.shopTab) {
-                        Text("All").tag("all")
-                        Text("Day").tag("day")
-                        Text("Meal").tag("meal")
-                        Text("Aisle").tag("aisle")
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
+            TightList {
                 if store.shopItems.isEmpty {
                     EmptyState(emoji: "🎄", title: "Nothing on the list yet", text: "Tap + to put the first item on the shared list.")
                 } else {
@@ -68,15 +62,17 @@ struct ShopView: View {
                     }
                     if store.shopTab == "aisle", store.shopItems.contains(where: { store.aisle(of: $0) == nil }), store.syncState == .offline {
                         Text("Items are sorted into aisles when the phone is online.").font(.footnote).foregroundStyle(.secondary)
+                            .listRowBackground(Color.clear)
                     }
                 }
+            } top: {
+                SubTabs(selection: $store.shopTab, options: [("all", "All"), ("day", "Day"), ("meal", "Meal"), ("aisle", "Aisle")])
             }
             .refreshable {
                 await store.sync()
                 await store.fetchAisles(force: true)
             }
-            .navigationTitle("Shopping")
-            .toolbar { ListToolbar(count: store.shopItems.filter { !$0.done }.count, word: "to buy") { adding = true } }
+            .toolbar { CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy") { adding = true } }
             .sheet(item: $editing) { ItemSheet(item: $0) }
             .sheet(isPresented: $adding) { ItemSheet(item: nil) }
             .task(id: store.shopTab) { if store.shopTab == "aisle" { await store.fetchAisles() } }
@@ -85,8 +81,8 @@ struct ShopView: View {
 
     private func row(_ i: Item, hide: String) -> some View {
         var tags: [Tag] = []
-        if !i.day.isEmpty, hide != "day" { tags.append(Tag(text: Catalog.dayNames[i.dayKey] ?? i.day, color: .blue)) }
-        if !i.meal.isEmpty, hide != "meal" { tags.append(Tag(text: i.meal, color: .orange)) }
+        if !i.day.isEmpty, hide != "day" { tags.append(Tag(text: Catalog.dayNames[i.dayKey] ?? i.day, color: Look.accent)) }
+        if !i.meal.isEmpty, hide != "meal" { tags.append(Tag(text: i.meal, color: Look.green)) }
         return ItemRow(item: i, dot: i.by.isEmpty ? nil : i.color, detail: i.qty, tags: tags) { editing = i }
     }
 
@@ -128,16 +124,7 @@ struct TodoView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Picker("Show", selection: $store.todoFilter) {
-                        Text("Everyone").tag("all")
-                        Text("Mine").tag("mine")
-                    }
-                    .pickerStyle(.segmented)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
+            TightList {
                 if visible.isEmpty {
                     EmptyState(emoji: "✅", title: store.todoFilter == "mine" ? "Nothing for you to do" : "No to-dos yet",
                                text: "Tap + to give someone a job.")
@@ -153,10 +140,11 @@ struct TodoView: View {
                         }
                     }
                 }
+            } top: {
+                SubTabs(selection: $store.todoFilter, options: [("all", "Everyone"), ("mine", "Mine")])
             }
             .refreshable { await store.sync() }
-            .navigationTitle("To-do")
-            .toolbar { ListToolbar(count: store.todoItems.filter { !$0.done }.count, word: "to do") { adding = true } }
+            .toolbar { CompactHeader(title: "To-do", count: store.todoItems.filter { !$0.done }.count, word: "to do") { adding = true } }
             .sheet(item: $editing) { TodoSheet(todo: $0) }
             .sheet(isPresented: $adding) { TodoSheet(todo: nil) }
         }
@@ -181,10 +169,9 @@ struct TodoView: View {
         let c = t.assignee.isEmpty ? Catalog.anyoneColor : (t.assigneeColor.isEmpty ? store.colorFor(t.assignee) : t.assigneeColor)
         var tags = [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))]
         if !t.due.isEmpty {
-            let s = TodoSection.of(t)
             let label: String
             let color: Color
-            switch s {
+            switch TodoSection.of(t) {
             case .overdue: label = "Overdue · \(Day.label(t.due))"; color = .red
             case .today: label = "Today"; color = .orange
             case .tomorrow: label = "Tomorrow"; color = .blue
@@ -198,11 +185,100 @@ struct TodoView: View {
 
 // MARK: - Shared pieces
 
+/// An inset list with the web app's spacing: 40 pt rows, 12 pt side padding, small gaps between sections, and the
+/// sub-tabs pinned above it.
+struct TightList<Content: View, Top: View>: View {
+    @ViewBuilder let content: Content
+    @ViewBuilder let top: Top
+
+    var body: some View {
+        List { content }
+            .listStyle(.insetGrouped)
+            .listSectionSpacing(.compact)
+            .environment(\.defaultMinListRowHeight, Look.rowHeight)
+            .contentMargins(.top, 4, for: .scrollContent)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                top.padding(.horizontal, 16).padding(.bottom, 6).background(.bar)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// The web app's segmented sub-tabs (.subtabs): 13 pt, a light fill, the chosen one raised.
+struct SubTabs: View {
+    @Binding var selection: String
+    let options: [(String, String)]
+
+    var body: some View {
+        Picker("", selection: $selection) {
+            ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .sensoryFeedback(.selection, trigger: selection)
+    }
+}
+
+/// The web app's nav row: a 22 pt bold title on the left with the sync dot and count beside it, + on the right.
+struct CompactHeader: ToolbarContent {
+    @EnvironmentObject var store: Store
+    let title: String
+    let count: Int
+    let word: String
+    let add: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            HStack(spacing: 8) {
+                Text(title).font(.system(size: 22, weight: .bold)).kerning(0.35).fixedSize()
+                SyncDot(state: store.syncState)
+                if count > 0 { Text("\(count) \(word)").font(.system(size: 13)).foregroundStyle(.secondary).fixedSize() }
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button(action: add) { Image(systemName: "plus") .font(.system(size: 17, weight: .semibold)) }
+                .accessibilityLabel("Add")
+        }
+    }
+}
+
+struct SyncDot: View {
+    let state: Store.SyncState
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 7, height: 7)
+                .opacity(state == .syncing ? 0.5 : 1)
+                .animation(state == .syncing ? .easeInOut(duration: 0.5).repeatForever() : .default, value: state)
+            Text(label).font(.system(size: 13)).foregroundStyle(.secondary)
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var color: Color {
+        switch state {
+        case .synced: Look.green
+        case .syncing: .secondary
+        case .offline: .orange
+        }
+    }
+
+    private var label: String {
+        switch state {
+        case .synced: "Synced"
+        case .syncing: "Syncing"
+        case .offline: "Offline"
+        }
+    }
+}
+
 struct Tag: Hashable {
     let text: String
     let color: Color
 }
 
+/// One row as on the web (.row): check circle, then the name, quantity and tags on one line that wraps when it must.
 struct ItemRow: View {
     @EnvironmentObject var store: Store
     let item: Item
@@ -212,46 +288,119 @@ struct ItemRow: View {
     let onEdit: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button { store.toggle(item) } label: {
-                Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(item.done ? Color.green : Color.secondary)
-            }
-            .buttonStyle(.plain)
-            .sensoryFeedback(.selection, trigger: item.done)
-            .accessibilityLabel(item.done ? (item.isTodo ? "Mark as not done" : "Mark as not bought")
-                : (item.isTodo ? "Mark as done" : "Mark as bought"))
+        HStack(spacing: 10) {
+            Button { store.toggle(item) } label: { CheckCircle(done: item.done) }
+                .buttonStyle(.plain)
+                .sensoryFeedback(.selection, trigger: item.done)
+                .accessibilityLabel(item.done ? (item.isTodo ? "Mark as not done" : "Mark as not bought")
+                    : (item.isTodo ? "Mark as done" : "Mark as bought"))
 
             Button(action: onEdit) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        if let dot { Circle().fill(Color(hex: dot.isEmpty ? Catalog.anyoneColor : dot)).frame(width: 9, height: 9) }
-                        Text(item.name).strikethrough(item.done).foregroundStyle(item.done ? .secondary : .primary)
-                        if !detail.isEmpty { Text("· \(detail)").foregroundStyle(.secondary) }
-                    }
-                    if !tags.isEmpty {
-                        HStack(spacing: 6) {
-                            ForEach(tags, id: \.self) { t in
-                                Text(t.text).font(.caption.weight(.medium))
-                                    .padding(.horizontal, 7).padding(.vertical, 2)
-                                    .background(t.color.opacity(0.15), in: Capsule())
-                                    .foregroundStyle(t.color)
+                HStack(spacing: 6) {
+                    Flow(spacing: 6, lineSpacing: 2) {
+                        HStack(spacing: 0) {
+                            if let dot {
+                                Circle().fill(Color(hex: dot.isEmpty ? Catalog.anyoneColor : dot))
+                                    .frame(width: Look.dot, height: Look.dot).padding(.trailing, 7)
                             }
+                            Text(item.name).font(.system(size: 16)).strikethrough(item.done)
+                                .foregroundStyle(item.done ? .secondary : .primary)
+                            if !detail.isEmpty { Text(" · \(detail)").font(.system(size: 16)).foregroundStyle(.secondary) }
                         }
+                        ForEach(tags, id: \.self) { TagView(tag: $0) }
                     }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
+        .listRowInsets(Look.rowInsets)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
         }
     }
 }
 
+struct CheckCircle: View {
+    let done: Bool
+
+    var body: some View {
+        ZStack {
+            Circle().strokeBorder(done ? Look.green : Color(.tertiaryLabel), lineWidth: 2)
+            if done {
+                Circle().fill(Look.green)
+                Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundStyle(.white)
+            }
+        }
+        .frame(width: Look.check, height: Look.check)
+        .contentShape(Rectangle().inset(by: -8))
+        .animation(.easeOut(duration: 0.15), value: done)
+    }
+}
+
+/// .tag: 11 pt medium, 1x6 padding, 8 pt corners, the colour at 12–15 % behind it.
+struct TagView: View {
+    let tag: Tag
+
+    var body: some View {
+        Text(tag.text)
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 6).padding(.vertical, 1)
+            .background(tag.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .foregroundStyle(tag.color)
+            .lineLimit(1)
+    }
+}
+
+/// Lays children out left to right, wrapping onto a new line when the row is full (CSS flex-wrap).
+struct Flow: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 2
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let width = rows.map(\.width).max() ?? 0
+        let height = rows.map(\.height).reduce(0, +) + lineSpacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+        var y = bounds.minY
+        for row in arrange(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for (i, size) in zip(row.indices, row.sizes) {
+                subviews[i].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + lineSpacing
+        }
+    }
+
+    private struct Row { var indices: [Int] = []; var sizes: [CGSize] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = [Row()]
+        for i in subviews.indices {
+            var size = subviews[i].sizeThatFits(.unspecified)
+            size.width = min(size.width, width)
+            if !rows[rows.count - 1].indices.isEmpty, rows[rows.count - 1].width + spacing + size.width > width {
+                rows.append(Row())
+            }
+            var r = rows[rows.count - 1]
+            r.width += (r.indices.isEmpty ? 0 : spacing) + size.width
+            r.height = max(r.height, size.height)
+            r.indices.append(i)
+            r.sizes.append(size)
+            rows[rows.count - 1] = r
+        }
+        return rows
+    }
+}
+
+/// .section-header: 13 pt capitals, the count of what is left on the right.
 struct SectionHeader: View {
     let title: String
     let items: [Item]
@@ -262,8 +411,11 @@ struct SectionHeader: View {
         HStack {
             Text(title)
             Spacer()
-            Text(left > 0 ? "\(left) \(word)" : "All done ✓").textCase(nil)
+            Text(left > 0 ? "\(left) \(word)" : "All done ✓")
         }
+        .font(.system(size: 13))
+        .foregroundStyle(.secondary)
+        .listRowInsets(EdgeInsets(top: 10, leading: 12, bottom: 4, trailing: 12))
     }
 }
 
@@ -273,35 +425,14 @@ struct EmptyState: View {
     let text: String
 
     var body: some View {
-        VStack(spacing: 8) {
-            Text(emoji).font(.system(size: 48))
-            Text(title).font(.headline)
+        VStack(spacing: 6) {
+            Text(emoji).font(.system(size: 56))
+            Text(title).font(.system(size: 20, weight: .semibold))
             Text(text).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 60)
         .listRowBackground(Color.clear)
-    }
-}
-
-struct ListToolbar: ToolbarContent {
-    @EnvironmentObject var store: Store
-    let count: Int
-    let word: String
-    let add: () -> Void
-
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            switch store.syncState {
-            case .offline: Label("Offline", systemImage: "wifi.slash").labelStyle(.titleAndIcon).font(.caption).foregroundStyle(.orange)
-            case .syncing: ProgressView().controlSize(.small)
-            case .synced: Text(count > 0 ? "\(count) \(word)" : "").font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button(action: add) { Image(systemName: "plus.circle.fill").font(.title2) }
-                .accessibilityLabel("Add")
-        }
     }
 }
 

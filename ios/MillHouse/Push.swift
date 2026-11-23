@@ -119,7 +119,7 @@ struct MillHouseApp: App {
                 .task { await Push.shared.registerIfAllowed(store: store) }
         }
         .onChange(of: phase) { _, p in
-            if p == .active { store.startPolling(); Task { await Updates.shared.check() } } else { store.stopPolling(); store.persist() }
+            if p == .active { store.startPolling() } else { store.stopPolling(); store.persist() }
         }
     }
 }

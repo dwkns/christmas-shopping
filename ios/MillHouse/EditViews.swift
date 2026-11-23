@@ -1,3 +1,4 @@
+import AppUpdates
 import SwiftUI
 
 // MARK: - Shopping item
@@ -315,8 +316,8 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            if Updates.shared.available != nil {
-                Section { UpdateBanner() }
+            if AppUpdater.shared.available != nil {
+                Section { UpdateRow(AppUpdater.shared) }
             }
             NameAndColour(name: $name, color: $color)
             Section {

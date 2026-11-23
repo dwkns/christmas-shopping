@@ -1,9 +1,13 @@
 name: MillHouse
 options:
   bundleIdPrefix: com.dwkns
-  deploymentTarget: { iOS: "17.0" }
+  deploymentTarget: { iOS: "26.0" }   # AppUpdates needs iOS 26; both phones run 26 or later
   xcodeVersion: "26.0"
   createIntermediateGroups: true
+# Over-the-air updates, shared with YouPods and Lifts: ~/Developer/AppUpdates (github.com/dwkns/AppUpdates).
+packages:
+  AppUpdates:
+    path: ../../AppUpdates
 settings:
   base:
     DEVELOPMENT_TEAM: LD2427W529
@@ -19,6 +23,8 @@ targets:
     type: application
     platform: iOS
     sources: [MillHouse]
+    dependencies:
+      - package: AppUpdates
     info:
       path: MillHouse/Info.plist
       properties:
