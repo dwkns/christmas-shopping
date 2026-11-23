@@ -4,6 +4,8 @@
 #   scripts/release-ios.sh            next PATCH version (0.1.0 -> 0.1.1)
 #   scripts/release-ios.sh --minor    next MINOR version (0.1.3 -> 0.2.0)
 #   scripts/release-ios.sh --major    next MAJOR version (0.3.2 -> 1.0.0)
+#   ALLOW_UNTESTED=1 scripts/release-ios.sh   skip the unit tests (when the simulator is stuck, e.g. a busy mini);
+#                                    run scripts/test-ios.sh later and release again
 #
 # What's new comes from ios/WhatsNew.md, written for the person holding the phone, one line per change.
 # First install on a new phone: scripts/add-device.sh, then open https://christmas-shopping-uovm.netlify.app/updates/
@@ -56,8 +58,12 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/updates/release")
 [ "$code" = 200 ] || [ "$code" = 404 ] && curl -sf -o /dev/null "$PUBLIC_URL/updates/" || {
   echo "$PUBLIC_URL/updates/ is not answering: push and deploy netlify/functions/updates.mjs first" >&2; exit 1; }
 
-step "unit tests"
-scripts/test-ios.sh || { echo "unit tests failed: nothing built or released" >&2; exit 1; }
+if [ "${ALLOW_UNTESTED:-0}" = "1" ]; then
+  echo "ALLOW_UNTESTED=1: releasing without the unit tests; run scripts/test-ios.sh later" >&2
+else
+  step "unit tests"
+  scripts/test-ios.sh || { echo "unit tests failed: nothing built or released" >&2; exit 1; }
+fi
 
 source scripts/secrets.sh
 apple_env
