@@ -1,1 +1,1 @@
-Open an item or to-do to see its history at the bottom: when it was added and by whom, when it was ticked off and by whom, when it last changed, its aisle, and whether it has synced.
+Settings is tidier: Account (name and colour) on its own screen, a Notifications switch, and a Debug screen with clearing ticked-off items and the Claude API usage and estimated cost of aisle sorting.

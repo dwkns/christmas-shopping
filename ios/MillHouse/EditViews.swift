@@ -221,39 +221,136 @@ struct WelcomeView: View {
 struct SettingsView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var push: Push
-    @State private var name = ""
-    @State private var color = ""
-    @State private var confirmShop = false
-    @State private var confirmTodos = false
+    /// Whether the Netlify server has its APNs keys (GET /api/apns); nil until known.
+    @State private var serverReady: Bool?
 
     var body: some View {
         Form {
             if AppUpdater.shared.available != nil {
                 Section { UpdateRow(AppUpdater.shared) }
             }
-            NameAndColour(name: $name, color: $color)
             Section {
-                switch push.status {
-                case .denied:
-                    Text("Notifications are blocked. Allow them for Xmas List in the Settings app.")
-                    Button("Open Settings") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
-                case .authorized, .provisional, .ephemeral:
-                    Button("Send a Test Notification") {
-                        Task { store.toast = .init(message: await push.test() ?? "Test sent") }
-                    }
-                    Button("Turn Off Notifications", role: .destructive) {
-                        Task { await push.disable(); store.toast = .init(message: "Notifications off") }
-                    }
-                default:
-                    Button("Turn On Notifications") {
-                        Task { if await push.enable(store: store) { store.toast = .init(message: "Notifications on") } }
+                NavigationLink { AccountView() } label: {
+                    HStack(spacing: 12) {
+                        Circle().fill(Color(hex: store.me?.color ?? Catalog.anyoneColor)).frame(width: 28, height: 28)
+                            .overlay(Text(String((store.me?.name ?? "?").prefix(1))).font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Account")
+                            Text(store.me?.name ?? "Not set").font(.footnote).foregroundStyle(.secondary)
+                        }
                     }
                 }
-            } header: {
-                Text("Notifications")
-            } footer: {
-                Text("Get told when someone adds shopping, when someone gives you a to-do, and at 8am when your to-dos are due.")
             }
+            Section {
+                if push.status == .denied {
+                    LabeledContent("Notifications", value: "Blocked")
+                    Button("Allow in the Settings app") {
+                        UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                    }
+                } else {
+                    Toggle("Notifications", isOn: notificationsOn)
+                    if notificationsOn.wrappedValue, serverReady == true {
+                        Button("Send a Test Notification") {
+                            Task { store.toast = .init(message: await push.test() ?? "Test sent") }
+                        }
+                    }
+                }
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("When someone adds shopping or gives you a to-do, and at 8am when your to-dos are due.")
+                    if serverReady == false {
+                        Text("The server can't send iPhone notifications yet: its Apple push key (APNs) isn't set up in Netlify. The 8am due reminders still work, because the phone schedules those itself.")
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+            Section {
+                NavigationLink { DebugView() } label: { Label("Debug", systemImage: "ladybug") }
+                LabeledContent("Version", value: AppInfo.version)
+            }
+        }
+        .navigationTitle("Settings")
+        .task {
+            await push.refreshStatus()
+            struct Status: Decodable { let configured: Bool }
+            serverReady = (try? await API.get("/api/apns") as Status)?.configured
+        }
+    }
+
+    private var notificationsOn: Binding<Bool> {
+        Binding(
+            get: { [.authorized, .provisional, .ephemeral].contains(push.status) },
+            set: { on in
+                Task {
+                    if on {
+                        if await push.enable(store: store) { store.toast = .init(message: "Notifications on") }
+                    } else {
+                        await push.disable()
+                        store.toast = .init(message: "Notifications off")
+                    }
+                }
+            })
+    }
+}
+
+/// Your name and colour, which mark what you add and the to-dos given to you.
+struct AccountView: View {
+    @EnvironmentObject var store: Store
+    @State private var name = ""
+    @State private var color = ""
+
+    var body: some View {
+        Form {
+            NameAndColour(name: $name, color: $color)
+        }
+        .navigationTitle("Account")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            name = store.me?.name ?? ""
+            color = store.me?.color ?? store.colorFor(name)
+        }
+        .onChange(of: color) { _, c in
+            if store.me != nil, c != store.me?.color, !name.isEmpty { store.setMe(name: name, color: c) }
+        }
+        .onSubmit(saveName)
+        .onDisappear(perform: saveName)
+    }
+
+    private func saveName() {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty, n != store.me?.name else { return }
+        store.setMe(name: n, color: color)
+        store.toast = .init(message: "Name saved")
+    }
+}
+
+/// Housekeeping and numbers: clearing ticked-off items, sync state, and the Claude API usage of the aisle sorter.
+struct DebugView: View {
+    @EnvironmentObject var store: Store
+    @State private var confirmShop = false
+    @State private var confirmTodos = false
+    @State private var usage: Usage?
+    @State private var usageError = false
+
+    struct Totals: Decodable {
+        let calls: Int
+        let input: Int
+        let output: Int
+        let cacheRead: Int
+        let cacheWrite: Int
+        let cost: Double
+        let since: Double?
+        let lastModel: String?
+    }
+    struct Usage: Decodable {
+        let month: Totals
+        let all: Totals
+        let monthKey: String
+    }
+
+    var body: some View {
+        Form {
             Section {
                 let shopDone = store.shopItems.filter(\.done).count
                 let todoDone = store.todoItems.filter(\.done).count
@@ -273,22 +370,63 @@ struct SettingsView: View {
                                     isPresented: $confirmTodos, titleVisibility: .visible) {
                     Button("Remove", role: .destructive) { store.clearDone(todos: true) }
                 }
+            } header: {
+                Text("List")
+            } footer: {
+                Text("Removes them for everyone, on every phone and the web.")
             }
+
             Section {
-                LabeledContent("Version", value: AppInfo.version)
+                if let u = usage {
+                    totals("This month", u.month)
+                    totals("All time", u.all)
+                } else if usageError {
+                    Text("Couldn't load usage from the server.").foregroundStyle(.secondary)
+                } else {
+                    ProgressView()
+                }
+            } header: {
+                Text("Claude API usage")
+            } footer: {
+                Text("Tokens the server spends sorting shopping into Sainsbury's aisles (Claude Opus 5.5, $4 in / $20 out per million tokens). Costs are estimates from list prices. Counted since this screen was added.")
+            }
+
+            Section("Sync") {
+                LabeledContent("Status", value: "\(store.syncState)")
+                LabeledContent("Waiting to send", value: "\(store.outbox.count)")
+                LabeledContent("Items on this phone", value: "\(store.live.count)")
             }
         }
-        .navigationTitle("Settings")
-        .onAppear {
-            name = store.me?.name ?? ""
-            color = store.me?.color ?? store.colorFor(name)
-            Task { await push.refreshStatus() }
-        }
-        .onChange(of: color) { _, c in
-            if store.me != nil, c != store.me?.color, !name.isEmpty { store.setMe(name: name, color: c) }
-        }
-        .onSubmit {
-            if !name.trimmingCharacters(in: .whitespaces).isEmpty { store.setMe(name: name, color: color); store.toast = .init(message: "Name saved") }
+        .navigationTitle("Debug")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    private func load() async {
+        do {
+            usage = try await API.get("/api/usage")
+            usageError = false
+        } catch {
+            usageError = true
         }
     }
+
+    @ViewBuilder private func totals(_ title: String, _ t: Totals) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title).font(.headline)
+                Spacer()
+                Text(t.cost, format: .currency(code: "USD").precision(.fractionLength(2...4))).font(.headline)
+            }
+            Text("\(t.calls) call\(t.calls == 1 ? "" : "s") · \(fmt(t.input)) in · \(fmt(t.output)) out")
+                .font(.footnote).foregroundStyle(.secondary)
+            if t.cacheRead + t.cacheWrite > 0 {
+                Text("Cache: \(fmt(t.cacheRead)) read · \(fmt(t.cacheWrite)) written").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func fmt(_ n: Int) -> String { n.formatted(.number.notation(.compactName)) + " tokens" }
 }
