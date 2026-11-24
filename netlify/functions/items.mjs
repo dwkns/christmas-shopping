@@ -84,6 +84,8 @@ export default async (req, context) => {
             assignee: String(c.assignee || "").slice(0, 40),
             assigneeColor: /^#[0-9a-fA-F]{6}$/.test(c.assigneeColor || "") ? c.assigneeColor : "",
             due: validDate(c.due) ? c.due : "",
+            when: ["soon", "norush"].includes(c.when) ? c.when : "", // the iPhone app's undated When choices
+            notes: String(c.notes || "").slice(0, 4000),
             createdAt: Number(c.createdAt) || c.updatedAt,
             updatedAt: c.updatedAt,
           };
