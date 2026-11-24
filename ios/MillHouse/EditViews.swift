@@ -11,6 +11,7 @@ struct ItemSheet: View {
     @State private var qty = ""
     @State private var day = "All"
     @State private var meal = ""
+    @State private var notes = ""
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -19,6 +20,7 @@ struct ItemSheet: View {
                 Section {
                     TextField("Item", text: $name).focused($focused).submitLabel(.done).onSubmit(submit)
                     TextField("Quantity (optional)", text: $qty)
+                    TextField("Notes (brand, size, where to get it…)", text: $notes, axis: .vertical).lineLimit(1...6)
                 }
                 Section("Day") {
                     Picker("Day", selection: $day) {
@@ -52,6 +54,7 @@ struct ItemSheet: View {
                     qty = item.qty
                     day = Catalog.days.contains(item.dayKey) ? item.dayKey : "All"
                     meal = item.meal
+                    notes = item.notes
                 } else {
                     focused = true
                 }
@@ -76,6 +79,7 @@ struct ItemSheet: View {
         base.qty = qty.trimmingCharacters(in: .whitespaces)
         base.day = day
         base.meal = meal
+        base.notes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         store.save(base)
         if item == nil { store.toast = .init(message: "Added “\(n)”") }
         dismiss()

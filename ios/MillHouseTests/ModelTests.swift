@@ -60,6 +60,16 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(TodoSection.of(t), .noRush)
     }
 
+    func testShoppingNotesSurviveDecodeEncodeAndMissingNotesIsEmpty() throws {
+        let old = try JSONDecoder().decode(Item.self, from: Data(#"{"id":"abcdef","name":"Milk","updatedAt":1}"#.utf8))
+        XCTAssertEqual(old.notes, "")
+        var i = old
+        i.notes = "Semi-skimmed, 4 pints"
+        let back = try JSONDecoder().decode(Item.self, from: JSONEncoder().encode(i))
+        XCTAssertEqual(back.notes, "Semi-skimmed, 4 pints")
+        XCTAssertEqual(back.name, "Milk")
+    }
+
     func testOldMultipleDayCountsAsAll() {
         var i = Item(id: "mmmmmm"); i.day = "Multiple"
         XCTAssertEqual(i.dayKey, "All")

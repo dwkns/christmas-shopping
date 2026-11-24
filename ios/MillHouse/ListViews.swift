@@ -285,6 +285,7 @@ struct ItemRow: View {
 
             Button(action: onEdit) {
                 HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 1) {
                     Flow(spacing: 6, lineSpacing: 2) {
                         HStack(spacing: 0) {
                             if let dot {
@@ -296,6 +297,12 @@ struct ItemRow: View {
                             if !detail.isEmpty { Text(" · \(detail)").font(.system(size: 16)).foregroundStyle(.secondary) }
                         }
                         ForEach(tags, id: \.self) { TagView(tag: $0) }
+                    }
+                    // Notes under the name, so they can be read while shopping.
+                    if !item.notes.isEmpty {
+                        Text(item.notes).font(.system(size: 13)).foregroundStyle(.secondary).lineLimit(2)
+                            .padding(.leading, dot == nil ? 0 : Look.dot + 7)
+                    }
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(.tertiary)
