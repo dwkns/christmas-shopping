@@ -13,6 +13,7 @@ enum Look {
 
 struct RootView: View {
     @EnvironmentObject var store: Store
+    @StateObject private var popups = Popups()
 
     var body: some View {
         TabView(selection: $store.tab) {
@@ -35,6 +36,8 @@ struct RootView: View {
         // What's New, the launch and foreground checks and polling; the bar itself is placed in each tab (updateBar()).
         .appUpdates(AppUpdater.shared, bar: false)
         .overlay(alignment: .bottom) { ToastView() }
+        .overlay { PopupHost() }
+        .environmentObject(popups)
         .onChange(of: store.shopTab) { _, _ in store.persist() }
         .onChange(of: store.todoFilter) { _, _ in store.persist() }
         .onChange(of: store.todoGroup) { _, _ in store.persist() }
@@ -115,120 +118,6 @@ struct ShopView: View {
 func byName(_ a: Item, _ b: Item) -> Bool {
     if a.done != b.done { return !a.done }
     return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-}
-
-// MARK: - To-do
-
-struct TodoView: View {
-    @EnvironmentObject var store: Store
-    @State private var editing: Item?
-    @State private var adding = false
-
-    var body: some View {
-        NavigationStack {
-            TightList {
-                if visible.isEmpty {
-                    EmptyState(emoji: "✅", title: store.todoFilter == "all" ? "No to-dos yet" : "Nothing here to do",
-                               text: "Tap + to give someone a job.")
-                } else {
-                    ForEach(groups, id: \.title) { g in
-                        Section {
-                            ForEach(g.items) { row($0) }
-                        } header: {
-                            SectionHeader(title: g.title, items: g.items, word: "to do")
-                        }
-                    }
-                }
-            } top: {
-                TodoControls(names: assignees)
-            }
-            .refreshable { await store.sync() }
-            .toolbar { CompactHeader(title: "To-do", count: store.todoItems.filter { !$0.done }.count, word: "to do") { adding = true } }
-            .sheet(item: $editing) { TodoSheet(todo: $0) }
-            .sheet(isPresented: $adding) { TodoSheet(todo: nil) }
-        }
-    }
-
-    /// Everyone with a to-do, me first then A–Z.
-    private var assignees: [String] {
-        let myName = store.me?.name ?? ""
-        var names: [String] = []
-        for t in store.todoItems where !t.assignee.isEmpty && !names.contains(where: { sameName($0, t.assignee) }) {
-            names.append(t.assignee)
-        }
-        return names.sorted { a, b in
-            let am = !myName.isEmpty && sameName(a, myName), bm = !myName.isEmpty && sameName(b, myName)
-            return am != bm ? am : a.localizedCaseInsensitiveCompare(b) == .orderedAscending
-        }
-    }
-
-    private var visible: [Item] {
-        let all = store.todoItems
-        let myName = store.me?.name ?? ""
-        switch store.todoFilter {
-        case "all": return all
-        case "mine": return all.filter { $0.assignee.isEmpty || (!myName.isEmpty && sameName($0.assignee, myName)) }
-        case "anyone": return all.filter { $0.assignee.isEmpty }
-        case let name: return all.filter { sameName($0.assignee, name) }
-        }
-    }
-
-    /// Sections from the Group control, each sorted by the Sort control; ticked-off to-dos always go in Done at the
-    /// bottom, newest first.
-    private var groups: [(title: String, items: [Item])] {
-        let open = visible.filter { !$0.done }
-        var out: [(title: String, items: [Item])] = []
-        switch store.todoGroup {
-        case "person":
-            for n in assignees {
-                let list = open.filter { sameName($0.assignee, n) }
-                if !list.isEmpty { out.append((firstName(n), sorted(list))) }
-            }
-            let anyone = open.filter { $0.assignee.isEmpty }
-            if !anyone.isEmpty { out.append(("Anyone", sorted(anyone))) }
-        case "due":
-            for s in TodoSection.allCases where s != .done {
-                let list = open.filter { TodoSection.of($0) == s }
-                if !list.isEmpty { out.append((s.rawValue, sorted(list))) }
-            }
-        default:
-            if !open.isEmpty { out.append(("To do", sorted(open))) }
-        }
-        let done = visible.filter(\.done).sorted { $0.updatedAt > $1.updatedAt }
-        if !done.isEmpty { out.append(("Done", done)) }
-        return out
-    }
-
-    private func sorted(_ list: [Item]) -> [Item] {
-        let byName: (Item, Item) -> Bool = { $0.name.localizedCompare($1.name) == .orderedAscending }
-        switch store.todoSort {
-        case "added": return list.sorted { $0.createdAt != $1.createdAt ? $0.createdAt > $1.createdAt : byName($0, $1) }
-        case "name": return list.sorted(by: byName)
-        default:
-            return list.sorted {
-                let a = $0.due.isEmpty ? "9999" : $0.due, b = $1.due.isEmpty ? "9999" : $1.due
-                return a != b ? a < b : byName($0, $1)
-            }
-        }
-    }
-
-    private func row(_ t: Item) -> some View {
-        let c = t.assignee.isEmpty ? Catalog.anyoneColor : (t.assigneeColor.isEmpty ? store.colorFor(t.assignee) : t.assigneeColor)
-        // The section already names the person; only Done mixes people, so only there does the row say whose it was.
-        var tags = (t.done || store.todoGroup != "person") ? [Tag(text: t.assignee.isEmpty ? "Anyone" : firstName(t.assignee), color: Color(hex: c))] : []
-        if !t.due.isEmpty {
-            let label: String
-            let color: Color
-            switch TodoSection.of(t) {
-            case .overdue: label = "Overdue · \(Day.label(t.due))"; color = .red
-            case .today: label = "Today"; color = .orange
-            case .tomorrow: label = "Tomorrow"; color = .blue
-            default: label = Day.label(t.due); color = .secondary
-            }
-            tags.append(Tag(text: label, color: t.done ? .secondary : color))
-        }
-        return ItemRow(item: t, dot: c, detail: "", tags: tags) { editing = t }
-    }
 }
 
 /// Three pull-down menus in a row above the to-do list: who to show, how to group, how to sort.
@@ -313,7 +202,9 @@ struct CompactHeader: ToolbarContent {
     let title: String
     let count: Int
     let word: String
-    let add: () -> Void
+    /// When set, the right-hand button is Done (a to-do card is open) instead of +.
+    var done: (() -> Void)? = nil
+    let add: (() -> Void)?
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
@@ -324,9 +215,15 @@ struct CompactHeader: ToolbarContent {
             }
         }
         .sharedBackgroundVisibility(.hidden) // plain text, not a glass capsule
-        ToolbarItem(placement: .topBarTrailing) {
-            Button(action: add) { Image(systemName: "plus") .font(.system(size: 17, weight: .semibold)) }
-                .accessibilityLabel("Add")
+        if let done {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done", action: done).fontWeight(.semibold)
+            }
+        } else if let add {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: add) { Image(systemName: "plus").font(.system(size: 17, weight: .semibold)) }
+                    .accessibilityLabel("Add")
+            }
         }
     }
 }

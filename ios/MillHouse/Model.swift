@@ -14,7 +14,9 @@ struct Item: Codable, Identifiable, Equatable {
     var color: String = ""
     var assignee: String = ""
     var assigneeColor: String = ""
-    var due: String = ""
+    var due: String = ""           // "yyyy-MM-dd" or ""; a date wins over `when`
+    var when: String = ""          // "", "soon" or "norush": a to-do with no date
+    var notes: String = ""
     var createdAt: Int64 = 0
     var updatedAt: Int64 = 0
     var deleted: Bool = false
@@ -29,7 +31,8 @@ struct Item: Codable, Identifiable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, due, createdAt, updatedAt, deleted
+        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, due, when, notes, createdAt, updatedAt,
+             deleted
     }
 
     init(from decoder: Decoder) throws {
@@ -46,6 +49,8 @@ struct Item: Codable, Identifiable, Equatable {
         assignee = (try? c.decodeIfPresent(String.self, forKey: .assignee)) ?? ""
         assigneeColor = (try? c.decodeIfPresent(String.self, forKey: .assigneeColor)) ?? ""
         due = (try? c.decodeIfPresent(String.self, forKey: .due)) ?? ""
+        when = (try? c.decodeIfPresent(String.self, forKey: .when)) ?? ""
+        notes = (try? c.decodeIfPresent(String.self, forKey: .notes)) ?? ""
         createdAt = Self.millis(c, .createdAt)
         updatedAt = Self.millis(c, .updatedAt)
         deleted = (try? c.decodeIfPresent(Bool.self, forKey: .deleted)) ?? false
@@ -76,6 +81,8 @@ struct Item: Codable, Identifiable, Equatable {
         try c.encode(assignee, forKey: .assignee)
         try c.encode(assigneeColor, forKey: .assigneeColor)
         try c.encode(due, forKey: .due)
+        try c.encode(when, forKey: .when)
+        try c.encode(notes, forKey: .notes)
         try c.encode(createdAt, forKey: .createdAt)
     }
 }
@@ -174,11 +181,12 @@ func mergeRemote(_ remote: [Item], into items: inout [String: Item], outbox: ino
 }
 
 enum TodoSection: String, CaseIterable {
-    case overdue = "Overdue", today = "Today", tomorrow = "Tomorrow", later = "Later", noDate = "No Date", done = "Done"
+    case overdue = "Overdue", today = "Today", tomorrow = "Tomorrow", later = "Later", soon = "Soon", noRush = "No Rush",
+         noDate = "No Date", done = "Done"
 
     static func of(_ t: Item, today: String = Day.today(), tomorrow: String = Day.addDays(1)) -> TodoSection {
         if t.done { return .done }
-        if t.due.isEmpty { return .noDate }
+        if t.due.isEmpty { return t.when == "soon" ? .soon : t.when == "norush" ? .noRush : .noDate }
         if t.due < today { return .overdue }
         if t.due == today { return .today }
         if t.due == tomorrow { return .tomorrow }

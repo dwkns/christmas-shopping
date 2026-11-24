@@ -46,6 +46,20 @@ final class ModelTests: XCTestCase {
         t.done = true; XCTAssertEqual(s(), .done)
     }
 
+    func testNotesAndWhenRoundTripAndSection() throws {
+        var t = Item(id: "abcdef", type: "todo")
+        t.notes = "Ring first"
+        t.when = "soon"
+        let back = try JSONDecoder().decode(Item.self, from: JSONEncoder().encode(t))
+        XCTAssertEqual(back.notes, "Ring first")
+        XCTAssertEqual(back.when, "soon")
+        XCTAssertEqual(TodoSection.of(back), .soon)
+        t.due = "2026-12-24" // a date wins over When
+        XCTAssertEqual(TodoSection.of(t, today: "2026-11-24", tomorrow: "2026-11-25"), .later)
+        t.due = ""; t.when = "norush"
+        XCTAssertEqual(TodoSection.of(t), .noRush)
+    }
+
     func testOldMultipleDayCountsAsAll() {
         var i = Item(id: "mmmmmm"); i.day = "Multiple"
         XCTAssertEqual(i.dayKey, "All")
