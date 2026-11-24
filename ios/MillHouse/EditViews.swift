@@ -20,7 +20,7 @@ struct ItemSheet: View {
                 Section {
                     TextField("Item", text: $name).focused($focused).submitLabel(.done).onSubmit(submit)
                     TextField("Quantity (optional)", text: $qty)
-                    TextField("Notes (brand, size, where to get it…)", text: $notes, axis: .vertical).lineLimit(1...6)
+                    TextField("Notes (brand, size, where to get it…)", text: $notes, axis: .vertical).lineLimit(4...12)
                 }
                 Section("Day") {
                     Picker("Day", selection: $day) {
