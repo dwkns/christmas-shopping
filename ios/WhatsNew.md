@@ -1,1 +1,1 @@
-The Notes box on a shopping item is now four lines tall and grows as you type. Return starts a new line.
+The dividing lines in the shopping list run the full width of the list.

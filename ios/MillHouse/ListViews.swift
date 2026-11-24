@@ -313,6 +313,9 @@ struct ItemRow: View {
             .buttonStyle(.plain)
         }
         .listRowInsets(Look.rowInsets)
+        // Dividers run the full width of the card, 12 pt in from each side, not from under the name.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        .alignmentGuide(.listRowSeparatorTrailing) { $0.width }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
         }
