@@ -115,7 +115,7 @@ export async function sendAPNs(devices, payload) {
       if (r.status === 400 && r.reason === "BadDeviceToken") {
         const other = e === "production" ? "sandbox" : "production";
         const r2 = await post(session(other), d.token, body, headers);
-        if (r2.status === 200) { e = other; r = r2; await tokenStore().setJSON(d.key, { token: d.token, name: d.name, env: e, updatedAt: d.updatedAt }); }
+        if (r2.status === 200) { e = other; r = r2; { const { key: _k, kind: _kind, ...rec } = d; await tokenStore().setJSON(d.key, { ...rec, env: e }); } }
       }
       if (r.status === 200) sent++;
       else if (r.status === 410 || (r.status === 400 && r.reason === "BadDeviceToken")) await tokenStore().delete(d.key);

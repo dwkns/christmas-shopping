@@ -1,5 +1,5 @@
 // iOS app device tokens (APNs).
-// POST { action: "register", token, name, env } | { action: "unregister", token } | { action: "test", token }
+// POST { action: "register", token, name, env, shopping?, todos? } | { action: "unregister", token } | { action: "test", token }
 // env is "sandbox" (development-signed builds) or "production".
 import { apnsConfigured, checkKey, sendAPNs, tokenKey, tokenStore, validToken } from "../lib/apns.mjs";
 
@@ -26,6 +26,9 @@ export default async (req) => {
       token,
       name: String(body.name || "").trim().slice(0, 40),
       env: body.env === "production" ? "production" : "sandbox",
+      // What this phone wants to hear about: new shopping (default off) and to-dos given to it (default on).
+      shopping: body.shopping === true,
+      todos: body.todos !== false,
       updatedAt: Date.now(),
     });
     return json({ ok: true, configured: apnsConfigured() });

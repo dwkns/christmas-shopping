@@ -25,8 +25,13 @@ async function notify(actor, events) {
   const who = actor ? firstName(actor) : "Someone";
   const jobs = [];
 
-  if (added.length) {
-    jobs.push(send(subs, {
+  // iPhones choose in Settings: shopping notifications are off unless turned on, to-dos on unless turned off.
+  // Web push subscriptions have no such setting and get both.
+  const wantsShopping = (s) => s.kind !== "apns" || s.shopping === true;
+  const wantsTodos = (s) => s.kind !== "apns" || s.todos !== false;
+
+  if (added.length && subs.some(wantsShopping)) {
+    jobs.push(send(subs.filter(wantsShopping), {
       title: "Shopping list",
       body: `${who} added ${list(added.map((i) => i.name))}`,
       url: "/?view=shop",
@@ -34,7 +39,8 @@ async function notify(actor, events) {
     }));
   }
   for (const t of assigned) {
-    const targets = t.assignee ? subs.filter((s) => sameName(s.name, t.assignee)) : subs;
+    const targets = (t.assignee ? subs.filter((s) => sameName(s.name, t.assignee)) : subs).filter(wantsTodos);
+    if (!targets.length) continue;
     const due = t.due ? ` (by ${dueLabel(t.due)})` : "";
     jobs.push(send(targets, {
       title: t.assignee ? "New to-do for you" : "New to-do for anyone",
