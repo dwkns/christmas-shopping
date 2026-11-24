@@ -86,6 +86,9 @@ export default async (req, context) => {
             due: validDate(c.due) ? c.due : "",
             when: ["soon", "norush"].includes(c.when) ? c.when : "", // the iPhone app's undated When choices
             notes: String(c.notes || "").slice(0, 4000),
+            doneAt: c.done ? Number(c.doneAt) || 0 : 0, // when it was ticked off, and by whom
+            doneBy: c.done ? String(c.doneBy || "").slice(0, 40) : "",
+            editedBy: String(c.editedBy || "").slice(0, 40), // who saved it last
             createdAt: Number(c.createdAt) || c.updatedAt,
             updatedAt: c.updatedAt,
           };

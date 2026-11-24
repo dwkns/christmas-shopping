@@ -100,6 +100,13 @@
 
   // ---------- Saving ----------
   function save(item) {
+    // History shown on the item: who ticked it off and when, and who changed it last.
+    if (!item.deleted) {
+      const prev = items[item.id];
+      if (!item.done) { item.doneAt = 0; item.doneBy = ""; }
+      else if (!prev || prev.deleted || !prev.done) { item.doneAt = Date.now(); item.doneBy = me?.name || ""; }
+      item.editedBy = me?.name || "";
+    }
     item.updatedAt = Math.max(Date.now(), (items[item.id]?.updatedAt || 0) + 1);
     items[item.id] = item;
     outbox[item.id] = item;
