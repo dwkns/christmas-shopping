@@ -20,6 +20,40 @@ export const validToken = (t) => typeof t === "string" && /^[0-9a-f]{64,200}$/i.
 export const apnsConfigured = () => !!(env("APNS_KEY_ID") && env("APNS_TEAM_ID") && env("APNS_KEY"));
 const topic = () => env("APNS_BUNDLE_ID") || "com.dwkns.millhouse";
 
+// The .p8 text as pasted into Netlify, tidied: "\n" escapes, Windows line ends, stray quotes and spaces around lines.
+function keyText() {
+  return String(env("APNS_KEY") || "").trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").replace(/\r/g, "")
+    .split("\n").map((l) => l.trim()).filter(Boolean).join("\n") + "\n";
+}
+
+/** Checks the key without a phone and without revealing it: does it parse as an EC P-256 key, and does Apple accept
+ *  a token signed with it? A made-up device token gets "BadDeviceToken" when the key is good, "InvalidProviderToken"
+ *  when it isn't. */
+export async function checkKey() {
+  const out = { configured: apnsConfigured(), keyId: env("APNS_KEY_ID") || "", teamId: env("APNS_TEAM_ID") || "", topic: topic() };
+  if (!out.configured) return out;
+  try {
+    const k = createPrivateKey(keyText());
+    out.keyParses = true;
+    out.keyType = `${k.asymmetricKeyType} ${k.asymmetricKeyDetails?.namedCurve || ""}`.trim();
+  } catch (e) {
+    out.keyParses = false;
+    out.keyError = String(e.message || e);
+    return out;
+  }
+  jwt = null;
+  const session = connect(HOSTS.sandbox).on("error", () => {});
+  try {
+    const r = await post(session, "0".repeat(64), { aps: { alert: "check" } },
+      { authorization: `bearer ${providerToken()}`, "apns-topic": topic(), "apns-push-type": "alert" });
+    out.apple = r;
+    out.appleAcceptsKey = r.status === 400 && r.reason === "BadDeviceToken";
+  } finally {
+    session.close();
+  }
+  return out;
+}
+
 // Provider token: valid for an hour, and Apple refuses one renewed more often than every 20 minutes. Keep it 40.
 let jwt = null;
 function providerToken() {
@@ -27,7 +61,7 @@ function providerToken() {
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const head = b64({ alg: "ES256", kid: env("APNS_KEY_ID") });
   const claims = b64({ iss: env("APNS_TEAM_ID"), iat: Math.floor(Date.now() / 1000) });
-  const key = createPrivateKey(String(env("APNS_KEY")).replace(/\\n/g, "\n"));
+  const key = createPrivateKey(keyText());
   const sig = sign("sha256", Buffer.from(`${head}.${claims}`), { key, dsaEncoding: "ieee-p1363" }).toString("base64url");
   jwt = { value: `${head}.${claims}.${sig}`, at: Date.now() };
   return jwt.value;

@@ -1,13 +1,17 @@
 // iOS app device tokens (APNs).
 // POST { action: "register", token, name, env } | { action: "unregister", token } | { action: "test", token }
 // env is "sandbox" (development-signed builds) or "production".
-import { apnsConfigured, sendAPNs, tokenKey, tokenStore, validToken } from "../lib/apns.mjs";
+import { apnsConfigured, checkKey, sendAPNs, tokenKey, tokenStore, validToken } from "../lib/apns.mjs";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
 export default async (req) => {
-  if (req.method === "GET") return json({ configured: apnsConfigured() });
+  if (req.method === "GET") {
+    // ?check=1: does the key parse, and does Apple accept it? (Never returns the key.)
+    if (new URL(req.url).searchParams.get("check")) return json(await checkKey());
+    return json({ configured: apnsConfigured() });
+  }
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
   let body;
