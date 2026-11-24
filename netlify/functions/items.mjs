@@ -107,7 +107,9 @@ export default async (req, context) => {
       }
     }
 
-    // Send notifications after the response, so saving stays fast.
+    // Send notifications after the response, so saving stays fast. `silent: true` (edits made by Claude on the
+    // user's behalf) saves without notifying anyone.
+    if (body?.silent === true) return json({ items: results });
     const work = notify(actor, events).catch((e) => console.error("notify failed", e));
     if (context?.waitUntil) context.waitUntil(work); else await work;
     return json({ items: results });
