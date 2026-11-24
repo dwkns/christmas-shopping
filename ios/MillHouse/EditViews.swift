@@ -82,20 +82,30 @@ struct ItemSheet: View {
     }
 }
 
-/// Tap to pick, tap again to clear.
+/// A one-line segmented track like the Day picker, except nothing need be chosen: tap to pick, tap again to clear.
 struct ChipRow: View {
     let options: [String]
     @Binding var selection: String
 
     var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             ForEach(options, id: \.self) { o in
-                Button(o) { selection = selection == o ? "" : o }
-                    .buttonStyle(.bordered)
-                    .tint(selection == o ? .accentColor : .secondary)
-                    .font(.subheadline)
+                let on = selection == o
+                Button { withAnimation(.snappy(duration: 0.2)) { selection = on ? "" : o } } label: {
+                    Text(o)
+                        .font(.system(size: 13, weight: on ? .semibold : .medium))
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity).frame(height: 30)
+                        .background(on ? Color(.systemGray3) : .clear, in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .padding(2)
+        .background(Color(.tertiarySystemFill), in: Capsule())
         .sensoryFeedback(.selection, trigger: selection)
     }
 }
