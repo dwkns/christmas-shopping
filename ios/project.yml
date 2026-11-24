@@ -14,8 +14,8 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     # One version number, bumped and committed by scripts/release-ios.sh.
-    MARKETING_VERSION: "0.1.11"
-    CURRENT_PROJECT_VERSION: "0.1.11"
+    MARKETING_VERSION: "0.1.12"
+    CURRENT_PROJECT_VERSION: "0.1.12"
     ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 targets:
