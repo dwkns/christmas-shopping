@@ -70,6 +70,18 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(back.name, "Milk")
     }
 
+    func testHistoryFieldsRoundTripAndDefault() throws {
+        let old = try JSONDecoder().decode(Item.self, from: Data(#"{"id":"abcdef","name":"Milk","done":true,"updatedAt":1}"#.utf8))
+        XCTAssertEqual(old.doneAt, 0)
+        XCTAssertEqual(old.doneBy, "")
+        var i = old
+        i.doneAt = 1_764_000_000_000; i.doneBy = "Helen"; i.editedBy = "Darrell"
+        let back = try JSONDecoder().decode(Item.self, from: JSONEncoder().encode(i))
+        XCTAssertEqual(back.doneAt, 1_764_000_000_000)
+        XCTAssertEqual(back.doneBy, "Helen")
+        XCTAssertEqual(back.editedBy, "Darrell")
+    }
+
     func testOldMultipleDayCountsAsAll() {
         var i = Item(id: "mmmmmm"); i.day = "Multiple"
         XCTAssertEqual(i.dayKey, "All")

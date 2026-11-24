@@ -349,6 +349,7 @@ struct TodoCard: View {
                 .accessibilityLabel("Delete to-do")
             }
             .padding(.leading, 28)
+            ItemHistory(id: item.id).padding(.leading, 34).padding(.top, 2)
         }
         .padding(.horizontal, 14).padding(.vertical, 14)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))

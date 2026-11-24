@@ -31,12 +31,14 @@ struct ItemSheet: View {
                 Section("Meal (optional)") {
                     ChipRow(options: Catalog.meals, selection: $meal)
                 }
-                if item != nil {
+                if let item {
                     Section {
                         Button("Delete Item", role: .destructive) {
-                            if let item { store.remove(item) }
+                            store.remove(item)
                             dismiss()
                         }
+                    } footer: {
+                        ItemHistory(id: item.id).padding(.top, 8)
                     }
                 }
             }
@@ -111,6 +113,55 @@ struct ChipRow: View {
         .padding(2)
         .background(Color(.tertiarySystemFill), in: Capsule())
         .sensoryFeedback(.selection, trigger: selection)
+    }
+}
+
+/// What has happened to an item, in small grey lines at the bottom of its screen: when and by whom it was added,
+/// ticked off and last changed, which aisle it is in, and whether the change has reached the server yet.
+struct ItemHistory: View {
+    @EnvironmentObject var store: Store
+    let id: String
+
+    var body: some View {
+        if let i = store.items[id], !i.deleted {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(lines(i), id: \.self) { Text($0) }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func lines(_ i: Item) -> [String] {
+        var out: [String] = []
+        let doneWord = i.isTodo ? "Done" : "Bought"
+        if i.createdAt > 0 { out.append("Added \(Self.when(i.createdAt))\(by(i.by))") }
+        if i.done {
+            out.append(i.doneAt > 0 ? "\(doneWord) \(Self.when(i.doneAt))\(by(i.doneBy))"
+                                    : "\(doneWord) (before times were recorded)")
+        }
+        // Last change, when it is not just the adding or the ticking off.
+        let last = max(i.createdAt, i.doneAt)
+        if i.updatedAt - last > 60_000 { out.append("Last changed \(Self.when(i.updatedAt))\(by(i.editedBy))") }
+        if !i.isTodo, let aisle = store.aisle(of: i) { out.append("Aisle: \(aisle)") }
+        if store.outbox[i.id] != nil { out.append("Not synced yet: saved on this phone, sends when online") }
+        return out
+    }
+
+    private func by(_ name: String) -> String { name.isEmpty ? "" : " by \(firstName(name))" }
+
+    /// "today at 14:02", "yesterday at 09:10", "Mon 23 Nov at 14:02"
+    static func when(_ ms: Int64) -> String {
+        let d = Date(timeIntervalSince1970: TimeInterval(ms) / 1000)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = "HH:mm"
+        let time = f.string(from: d)
+        if Calendar.current.isDateInToday(d) { return "today at \(time)" }
+        if Calendar.current.isDateInYesterday(d) { return "yesterday at \(time)" }
+        f.dateFormat = Calendar.current.isDate(d, equalTo: Date(), toGranularity: .year) ? "EEE d MMM" : "EEE d MMM yyyy"
+        return "\(f.string(from: d)) at \(time)"
     }
 }
 

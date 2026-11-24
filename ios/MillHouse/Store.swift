@@ -110,6 +110,18 @@ final class Store: ObservableObject {
 
     func save(_ item: Item) {
         var item = item
+        // History shown on the item: who ticked it off and when, and who changed it last (as public/app.js does).
+        if !item.deleted {
+            let prev = items[item.id]
+            if !item.done {
+                item.doneAt = 0
+                item.doneBy = ""
+            } else if prev == nil || prev!.deleted || !prev!.done {
+                item.doneAt = nowMillis()
+                item.doneBy = me?.name ?? ""
+            }
+            item.editedBy = me?.name ?? ""
+        }
         item.updatedAt = max(nowMillis(), (items[item.id]?.updatedAt ?? 0) + 1)
         items[item.id] = item
         outbox[item.id] = item

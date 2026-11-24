@@ -17,6 +17,9 @@ struct Item: Codable, Identifiable, Equatable {
     var due: String = ""           // "yyyy-MM-dd" or ""; a date wins over `when`
     var when: String = ""          // "", "soon" or "norush": a to-do with no date
     var notes: String = ""
+    var doneAt: Int64 = 0          // when it was ticked off (0: not done, or done before this was recorded)
+    var doneBy: String = ""
+    var editedBy: String = ""      // who saved it last
     var createdAt: Int64 = 0
     var updatedAt: Int64 = 0
     var deleted: Bool = false
@@ -31,7 +34,7 @@ struct Item: Codable, Identifiable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, due, when, notes, createdAt, updatedAt,
+        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, due, when, notes, doneAt, doneBy, editedBy, createdAt, updatedAt,
              deleted
     }
 
@@ -51,6 +54,9 @@ struct Item: Codable, Identifiable, Equatable {
         due = (try? c.decodeIfPresent(String.self, forKey: .due)) ?? ""
         when = (try? c.decodeIfPresent(String.self, forKey: .when)) ?? ""
         notes = (try? c.decodeIfPresent(String.self, forKey: .notes)) ?? ""
+        doneAt = Self.millis(c, .doneAt)
+        doneBy = (try? c.decodeIfPresent(String.self, forKey: .doneBy)) ?? ""
+        editedBy = (try? c.decodeIfPresent(String.self, forKey: .editedBy)) ?? ""
         createdAt = Self.millis(c, .createdAt)
         updatedAt = Self.millis(c, .updatedAt)
         deleted = (try? c.decodeIfPresent(Bool.self, forKey: .deleted)) ?? false
@@ -83,6 +89,9 @@ struct Item: Codable, Identifiable, Equatable {
         try c.encode(due, forKey: .due)
         try c.encode(when, forKey: .when)
         try c.encode(notes, forKey: .notes)
+        try c.encode(doneAt, forKey: .doneAt)
+        try c.encode(doneBy, forKey: .doneBy)
+        try c.encode(editedBy, forKey: .editedBy)
         try c.encode(createdAt, forKey: .createdAt)
     }
 }
