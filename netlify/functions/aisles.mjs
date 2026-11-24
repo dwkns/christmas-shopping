@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { getStore } from "@netlify/blobs";
 import { z } from "zod";
+import { recordUsage } from "../lib/usage.mjs";
 
 // Supermarket sections in a typical large Sainsbury's walk order.
 // Keep this list in sync with AISLES in public/app.js.
@@ -68,6 +69,8 @@ async function classify(names) {
     messages: [{ role: "user", content: names.map((n) => `- ${n}`).join("\n") }],
   });
 
+  // response.model is the model that answered (a fallback may have stepped in), so the cost uses its prices.
+  await recordUsage(response.model, response.usage);
   if (response.stop_reason === "refusal" || !response.parsed_output) {
     throw new Error(`Classification failed: ${response.stop_reason}`);
   }
