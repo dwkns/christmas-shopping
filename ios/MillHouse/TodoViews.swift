@@ -205,7 +205,6 @@ struct WhenLabel {
     let color: Color
 
     static let star = Color(red: 0.98, green: 0.80, blue: 0.18)
-    static let tan = Color(red: 0.85, green: 0.77, blue: 0.55)
 
     init?(_ t: Item) {
         let today = Day.today()
@@ -215,7 +214,7 @@ struct WhenLabel {
             else if t.due == Day.addDays(1) { icon = "sunrise.fill"; text = "Tomorrow"; color = .orange }
             else { icon = "calendar"; text = Day.label(t.due); color = .secondary }
         } else if t.when == "soon" { icon = "clock.fill"; text = "Soon"; color = .blue }
-        else if t.when == "norush" { icon = "archivebox.fill"; text = "No rush"; color = Self.tan }
+        else if t.when == "norush" { icon = "tortoise.fill"; text = "No rush"; color = .green }
         else { return nil }
     }
 }
@@ -343,7 +342,7 @@ struct TodoCard: View {
                 }
                 Spacer()
                 Button(action: onDelete) {
-                    Image(systemName: "trash").font(.system(size: 17)).foregroundStyle(.secondary)
+                    Image(systemName: "trash").font(.system(size: 17)).foregroundStyle(.red)
                         .frame(width: 40, height: 36)
                 }
                 .buttonStyle(.plain)
@@ -466,13 +465,13 @@ struct PopupRow<Icon: View>: View {
 struct WhenPopup: View {
     @Binding var item: Item?
     let close: () -> Void
-    /// Five weeks per page; page 0 starts with this week. More pages replace the shortcuts, as in Things.
+    /// Months ahead of this one shown in the calendar.
     @State private var page = 0
 
     var body: some View {
         let t = item ?? Item(id: "")
-        PopupCard(title: "When?", close: close, back: page > 0 ? { withAnimation(.snappy) { page -= 1 } } : nil) {
-            if page == 0 {
+        PopupCard(title: "When?", close: close) {
+            VStack(spacing: 0) {
                 PopupRow(text: "Today", on: t.due == Day.today(), action: { set(Day.today(), "") }) {
                     Image(systemName: "star.fill").foregroundStyle(WhenLabel.star)
                 }
@@ -483,7 +482,7 @@ struct WhenPopup: View {
                     Image(systemName: "clock.fill").foregroundStyle(.blue)
                 }
                 PopupRow(text: "No rush", on: t.due.isEmpty && t.when == "norush", action: { set("", "norush") }) {
-                    Image(systemName: "archivebox.fill").foregroundStyle(WhenLabel.tan)
+                    Image(systemName: "tortoise.fill").foregroundStyle(.green)
                 }
             }
             MonthGrid(page: $page, selected: t.due) { set($0, "") }
@@ -508,79 +507,111 @@ struct WhenPopup: View {
     }
 }
 
-/// Things' calendar: weeks from Monday, today as a star, past days blank, the 1st of each month labelled, and a
-/// chevron in the last cell to page on. Five weeks a page, so the pop-up never scrolls.
+/// One month at a time, Monday first, with the month and year between ‹ and › at the top. Days before today are
+/// greyed out, today is a star, the chosen day is filled. It starts at this month (or the chosen day's) and cannot go
+/// back before it.
 struct MonthGrid: View {
     @Binding var page: Int
     let selected: String
     let pick: (String) -> Void
 
-    private static let weeks = 5
-    private var cal: Calendar { var c = Calendar(identifier: .gregorian); c.firstWeekday = 2; c.locale = Locale(identifier: "en_GB"); return c }
+    private var cal: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.firstWeekday = 2
+        c.locale = Locale(identifier: "en_GB")
+        return c
+    }
 
     var body: some View {
-        let days = self.days
+        let month = self.month
         let today = Day.today()
         VStack(spacing: 2) {
+            HStack {
+                arrow("chevron.left", enabled: page > 0) { page -= 1 }.accessibilityLabel("Previous month")
+                Spacer()
+                Text(month.formatted(.dateTime.month(.wide).year())).font(.system(size: 17, weight: .semibold))
+                    .contentTransition(.numericText())
+                Spacer()
+                arrow("chevron.right", enabled: page < 24) { page += 1 }.accessibilityLabel("Next month")
+            }
+            .padding(.bottom, 2)
             HStack(spacing: 0) {
-                ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) {
-                    Text($0).font(.system(size: 14, weight: .medium)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                ForEach(["M", "T", "W", "T", "F", "S", "S"].indices, id: \.self) { i in
+                    Text(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]).font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
             }
-            .padding(.bottom, 4)
-            ForEach(0..<Self.weeks, id: \.self) { w in
+            .padding(.bottom, 2)
+            let cells = self.cells(month)
+            ForEach(0..<(cells.count / 7), id: \.self) { w in
                 HStack(spacing: 0) {
-                    ForEach(0..<7, id: \.self) { d in
-                        let i = w * 7 + d
-                        if i == days.count - 1 {
-                            Button { withAnimation(.snappy) { page += 1 } } label: {
-                                Image(systemName: "chevron.right").font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.primary).frame(maxWidth: .infinity).frame(height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Later dates")
-                        } else {
-                            cell(days[i], today: today)
-                        }
-                    }
+                    ForEach(0..<7, id: \.self) { d in cell(cells[w * 7 + d], today: today) }
                 }
+            }
+        }
+        .gesture(DragGesture(minimumDistance: 30).onEnded { v in
+            if v.translation.width < -40, page < 24 { withAnimation(.snappy) { page += 1 } }
+            if v.translation.width > 40, page > 0 { withAnimation(.snappy) { page -= 1 } }
+        })
+        .onAppear {
+            // Open on the chosen day's month.
+            if let d = Day.date(selected) {
+                let now = cal.dateComponents([.year, .month], from: Date())
+                let sel = cal.dateComponents([.year, .month], from: d)
+                page = max(0, min(24, (sel.year! - now.year!) * 12 + sel.month! - now.month!))
             }
         }
     }
 
-    private var days: [Date] {
-        let now = Date()
-        let start = cal.dateInterval(of: .weekOfYear, for: now)!.start
-        let first = cal.date(byAdding: .day, value: page * Self.weeks * 7, to: start)!
-        return (0..<(Self.weeks * 7)).map { cal.date(byAdding: .day, value: $0, to: first)! }
+    private func arrow(_ icon: String, enabled: Bool, _ go: @escaping () -> Void) -> some View {
+        Button { withAnimation(.snappy) { go() } } label: {
+            Image(systemName: icon).font(.system(size: 16, weight: .semibold))
+                .frame(width: 40, height: 36)
+                .background(Color(.tertiarySystemFill), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(enabled ? .primary : .quaternary)
+        .disabled(!enabled)
     }
 
-    @ViewBuilder private func cell(_ date: Date, today: String) -> some View {
-        let ymd = Day.ymd(date)
-        let day = cal.component(.day, from: date)
-        if ymd < today {
-            Color.clear.frame(maxWidth: .infinity).frame(height: 44)
-        } else {
+    /// The first of the month on show.
+    private var month: Date {
+        let first = cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
+        return cal.date(byAdding: .month, value: page, to: first)!
+    }
+
+    /// Whole weeks covering the month; nil for days of the months either side.
+    private func cells(_ month: Date) -> [Date?] {
+        let count = cal.range(of: .day, in: .month, for: month)!.count
+        let lead = (cal.component(.weekday, from: month) + 5) % 7 // Monday = 0
+        var out: [Date?] = Array(repeating: nil, count: lead)
+        out += (0..<count).map { cal.date(byAdding: .day, value: $0, to: month)! }
+        while out.count % 7 != 0 { out.append(nil) }
+        return out
+    }
+
+    @ViewBuilder private func cell(_ date: Date?, today: String) -> some View {
+        if let date {
+            let ymd = Day.ymd(date)
+            let past = ymd < today
+            let on = ymd == selected
             Button { pick(ymd) } label: {
                 ZStack {
-                    if ymd == selected { Circle().fill(Color.accentColor).frame(width: 40, height: 40) }
+                    if on { Circle().fill(Color.accentColor).frame(width: 38, height: 38) }
                     if ymd == today {
-                        Image(systemName: "star.fill").font(.system(size: 18))
-                            .foregroundStyle(ymd == selected ? .white : Color.secondary)
-                    } else if day == 1 {
-                        VStack(spacing: -2) {
-                            Text(date.formatted(.dateTime.month(.abbreviated))).font(.system(size: 11, weight: .semibold))
-                            Text("1").font(.system(size: 17, weight: .medium))
-                        }
+                        Image(systemName: "star.fill").font(.system(size: 17)).foregroundStyle(on ? .white : WhenLabel.star)
                     } else {
-                        Text("\(day)").font(.system(size: 18, weight: .medium))
+                        Text("\(cal.component(.day, from: date))").font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(on ? AnyShapeStyle(.white) : past ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.primary))
                     }
                 }
-                .foregroundStyle(ymd == selected ? .white : .primary)
-                .frame(maxWidth: .infinity).frame(height: 44)
+                .frame(maxWidth: .infinity).frame(height: 40)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(past)
+        } else {
+            Color.clear.frame(maxWidth: .infinity).frame(height: 40)
         }
     }
 }

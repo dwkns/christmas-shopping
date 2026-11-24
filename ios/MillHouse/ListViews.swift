@@ -127,10 +127,10 @@ struct TodoControls: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            control("Show", $store.todoFilter, [("all", "Everyone"), ("mine", "Mine")]
+            control("Show", "person.2", $store.todoFilter, [("all", "Everyone"), ("mine", "Mine")]
                     + shown.map { ($0, firstName($0)) } + [("anyone", "Anyone")])
-            control("Group", $store.todoGroup, [("person", "Person"), ("due", "Due"), ("none", "None")])
-            control("Sort", $store.todoSort, [("due", "Due date"), ("added", "Newest"), ("name", "A–Z")])
+            control("Group", "square.stack.3d.up", $store.todoGroup, [("person", "Person"), ("due", "Due"), ("none", "None")])
+            control("Sort", "arrow.up.arrow.down", $store.todoSort, [("due", "Due date"), ("added", "Newest"), ("name", "A–Z")])
         }
         .sensoryFeedback(.selection, trigger: store.todoFilter + store.todoGroup + store.todoSort)
     }
@@ -141,15 +141,16 @@ struct TodoControls: View {
         return ["all", "mine", "anyone"].contains(f) || names.contains(where: { sameName($0, f) }) ? names : names + [f]
     }
 
-    private func control(_ label: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
+    private func control(_ label: String, _ icon: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
         Menu {
             Picker(label, selection: value) {
                 ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
             }
         } label: {
             HStack(spacing: 3) {
-                Text(label + ":").foregroundStyle(.secondary)
-                Text(options.first { $0.0 == value.wrappedValue }?.1 ?? options[0].1).lineLimit(1)
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    .accessibilityLabel(label)
+                Text(options.first { $0.0 == value.wrappedValue }?.1 ?? options[0].1).lineLimit(1).minimumScaleFactor(0.85)
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
             }
             .font(.system(size: 13, weight: .medium))
@@ -157,6 +158,7 @@ struct TodoControls: View {
             .padding(.horizontal, 10).frame(height: 30).frame(maxWidth: .infinity)
             .background(Color(.tertiarySystemFill), in: Capsule())
         }
+        .tint(.primary)
     }
 }
 
