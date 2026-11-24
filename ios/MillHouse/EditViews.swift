@@ -250,19 +250,23 @@ struct SettingsView: View {
                     }
                 } else {
                     Toggle("Notifications", isOn: notificationsOn)
-                    if notificationsOn.wrappedValue, serverReady == true {
-                        Button("Send a Test Notification") {
-                            Task { store.toast = .init(message: await push.test() ?? "Test sent") }
+                    if notificationsOn.wrappedValue {
+                        Toggle(isOn: $push.shopping) {
+                            Text("Shopping")
+                            Text("When someone adds to the list")
+                        }
+                        Toggle(isOn: $push.todos) {
+                            Text("To-dos")
+                            Text("When someone gives you one, and at 8am when yours are due")
                         }
                     }
                 }
+            } header: {
+                Text("Notifications")
             } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("When someone adds shopping or gives you a to-do, and at 8am when your to-dos are due.")
-                    if serverReady == false {
-                        Text("The server can't send iPhone notifications yet: its Apple push key (APNs) isn't set up in Netlify. The 8am due reminders still work, because the phone schedules those itself.")
-                            .foregroundStyle(.orange)
-                    }
+                if serverReady == false {
+                    Text("The server can't send iPhone notifications yet: its Apple push key (APNs) isn't set up in Netlify. The 8am due reminders still work, because the phone schedules those itself.")
+                        .foregroundStyle(.orange)
                 }
             }
             Section {
@@ -328,6 +332,7 @@ struct AccountView: View {
 /// Housekeeping and numbers: clearing ticked-off items, sync state, and the Claude API usage of the aisle sorter.
 struct DebugView: View {
     @EnvironmentObject var store: Store
+    @EnvironmentObject var push: Push
     @State private var confirmShop = false
     @State private var confirmTodos = false
     @State private var usage: Usage?
@@ -389,6 +394,17 @@ struct DebugView: View {
                 Text("Claude API usage")
             } footer: {
                 Text("Tokens the server spends sorting shopping into Sainsbury's aisles (Claude Opus 5.5, $4 in / $20 out per million tokens). Costs are estimates from list prices. Counted since this screen was added.")
+            }
+
+            Section {
+                Button("Send a Test Notification") {
+                    Task { store.toast = .init(message: await push.test() ?? "Test sent") }
+                }
+                .disabled(![.authorized, .provisional, .ephemeral].contains(push.status))
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("Sends a notification to this phone through the server and Apple, to check the whole path works.")
             }
 
             Section("Sync") {

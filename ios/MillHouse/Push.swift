@@ -12,6 +12,29 @@ final class Push: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published private(set) var token: String?
     weak var store: Store?
 
+    /// Which notifications this phone wants, saved on the phone and sent to the server with the device token.
+    /// New shopping is off unless turned on; to-dos (given to you, and the 8am due reminder) are on unless turned off.
+    @Published var shopping: Bool = UserDefaults.standard.bool(forKey: "notify.shopping") {
+        didSet { UserDefaults.standard.set(shopping, forKey: "notify.shopping"); sendPrefs() }
+    }
+    @Published var todos: Bool = UserDefaults.standard.object(forKey: "notify.todos") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(todos, forKey: "notify.todos")
+            sendPrefs()
+            if let store { Task { await DueReminders.reschedule(todos: store.todoItems, me: store.me?.name ?? "") } }
+        }
+    }
+    nonisolated static var todosWanted: Bool { UserDefaults.standard.object(forKey: "notify.todos") as? Bool ?? true }
+
+    private func sendPrefs() {
+        guard let token, let name = store?.me?.name else { return }
+        Task { _ = try? await post(register(token, name)) }
+    }
+
+    private func register(_ token: String, _ name: String) -> [String: Any] {
+        ["action": "register", "token": token, "name": name, "env": Self.environment, "shopping": shopping, "todos": todos]
+    }
+
     /// "sandbox" for development-signed builds (all of ours), "production" for App Store ones: read from the
     /// provisioning profile, which the simulator does not have.
     static let environment: String = {
@@ -60,7 +83,7 @@ final class Push: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
         token = hex
         guard let name = store?.me?.name else { return }
-        Task { _ = try? await post(["action": "register", "token": hex, "name": name, "env": Self.environment]) }
+        Task { _ = try? await post(register(hex, name)) }
     }
 
     /// Sends a test notification to this phone. Returns the server's message when it fails.
@@ -74,7 +97,7 @@ final class Push: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    private func post(_ body: [String: String]) async throws -> (Bool, String?) {
+    private func post(_ body: [String: Any]) async throws -> (Bool, String?) {
         var req = URLRequest(url: Store.baseURL.appendingPathComponent("/api/apns"))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "content-type")

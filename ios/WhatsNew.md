@@ -1,1 +1,1 @@
-Settings is tidier: Account (name and colour) on its own screen, a Notifications switch, and a Debug screen with clearing ticked-off items and the Claude API usage and estimated cost of aisle sorting.
+Settings has a Notifications section: the main switch, then Shopping (off to start) and To-dos (on). The test notification has moved to Debug.

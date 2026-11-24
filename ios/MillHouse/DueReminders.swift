@@ -42,7 +42,7 @@ enum DueReminders {
         let status = await center.notificationSettings().authorizationStatus
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(prefix) }
         center.removePendingNotificationRequests(withIdentifiers: pending)
-        guard status == .authorized || status == .provisional else { return }
+        guard status == .authorized || status == .provisional, Push.todosWanted else { return }
         for r in plan(todos: todos, me: me) {
             guard let date = Day.date(r.day) else { continue }
             var when = Calendar.current.dateComponents([.year, .month, .day], from: date)
