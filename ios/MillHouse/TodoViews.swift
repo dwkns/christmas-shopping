@@ -417,12 +417,13 @@ struct ShopCard: View {
                     .focused(focus)
                     .submitLabel(.done)
                     .onSubmit(onSubmit)
-                TextField("Qty", text: $item.qty)
-                    .font(.system(size: 16))
-                    .multilineTextAlignment(.trailing)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: 90)
             }
+            HStack(spacing: 8) {
+                Image(systemName: "number").font(.system(size: 14, weight: .semibold)).foregroundStyle(.secondary)
+                TextField("Quantity", text: $item.qty)
+                    .font(.system(size: 16))
+            }
+            .padding(.leading, 34)
             TextField("Notes (brand, size, where to get it…)", text: $item.notes, axis: .vertical)
                 .font(.system(size: 16))
                 .lineLimit(2...10)
