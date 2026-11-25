@@ -1,1 +1,3 @@
-- Show, Organise by and Sort by labels above the to-do controls
+- Shopping items open in place as a card, like to-dos
+- Day and Meal pick from pop-ups
+- Floating + to add an item

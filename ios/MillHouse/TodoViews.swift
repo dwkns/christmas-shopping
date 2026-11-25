@@ -43,15 +43,7 @@ struct TodoView: View {
                 .animation(.snappy(duration: 0.25), value: draft?.id)
 
                 if draft == nil {
-                    Button(action: add) {
-                        Image(systemName: "plus").font(.system(size: 26, weight: .semibold)).foregroundStyle(.white)
-                            .frame(width: 58, height: 58)
-                            .background(Look.accent, in: Circle())
-                            .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
-                    }
-                    .padding(.trailing, 20).padding(.bottom, 16)
-                    .accessibilityLabel("New to-do")
-                    .transition(.scale.combined(with: .opacity))
+                    AddButton(label: "New to-do", action: add)
                 }
             }
             .toolbar {
@@ -371,12 +363,106 @@ struct TodoCard: View {
     }
 }
 
+/// The floating red + at the bottom right of a list.
+struct AddButton: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus").font(.system(size: 26, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+                .background(Look.accent, in: Circle())
+                .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
+        }
+        .padding(.trailing, 20).padding(.bottom, 16)
+        .accessibilityLabel(label)
+        .transition(.scale.combined(with: .opacity))
+    }
+}
+
+/// A rounded control on an open card (When, Who, Day, Meal).
+struct CardChip<L: View>: View {
+    let action: () -> Void
+    @ViewBuilder let label: L
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) { label }
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 10).frame(height: 34)
+                .background(Color(.tertiarySystemFill), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// An open shopping item, laid out like a to-do card: name and quantity, notes, then Day and Meal with delete.
+struct ShopCard: View {
+    @Binding var item: Item
+    var focus: FocusState<Bool>.Binding
+    let onDay: () -> Void
+    let onMeal: () -> Void
+    let onDelete: () -> Void
+    let onSubmit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Button { item.done.toggle() } label: { CheckCircle(done: item.done) }
+                    .buttonStyle(.plain)
+                TextField("New Item", text: $item.name)
+                    .font(.system(size: 18, weight: .medium))
+                    .focused(focus)
+                    .submitLabel(.done)
+                    .onSubmit(onSubmit)
+                TextField("Qty", text: $item.qty)
+                    .font(.system(size: 16))
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: 90)
+            }
+            TextField("Notes (brand, size, where to get it…)", text: $item.notes, axis: .vertical)
+                .font(.system(size: 16))
+                .lineLimit(2...10)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 34)
+            HStack(spacing: 8) {
+                CardChip(action: onDay) {
+                    Image(systemName: "calendar").foregroundStyle(Look.accent)
+                    Text(Catalog.days.contains(item.dayKey) && item.dayKey != "All" ? (Catalog.dayNames[item.dayKey] ?? item.day) : "All days")
+                }
+                CardChip(action: onMeal) {
+                    Image(systemName: "fork.knife").foregroundStyle(item.meal.isEmpty ? .secondary : Look.green)
+                    Text(item.meal.isEmpty ? "Meal" : item.meal).foregroundStyle(item.meal.isEmpty ? .secondary : .primary)
+                }
+                Spacer()
+                Button(action: onDelete) {
+                    Image(systemName: "trash").font(.system(size: 17)).foregroundStyle(.red)
+                        .frame(width: 40, height: 36)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Delete item")
+            }
+            .padding(.leading, 28)
+            ItemHistory(id: item.id).padding(.leading, 34).padding(.top, 2)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 14)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+        .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 10, trailing: 4))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+    }
+}
+
 // MARK: - Pop-ups
 
 /// The When and Who pop-ups: a full-width card in the middle of the screen over a dimmed app, shown by RootView so it
 /// covers the tab bar too. `editing` points at the open card's draft, which the pop-ups change.
 @MainActor final class Popups: ObservableObject {
-    enum Kind: Equatable { case when(String), who(String) }
+    enum Kind: Equatable { case when(String), who(String), day(String), meal(String) }
     @Published var kind: Kind?
     var editing: Binding<Item?>?
 
@@ -397,6 +483,8 @@ struct PopupHost: View {
                     switch kind {
                     case .when: WhenPopup(item: draft, close: popups.hide)
                     case .who: WhoPopup(item: draft, close: popups.hide)
+                    case .day: DayPopup(item: draft, close: popups.hide)
+                    case .meal: MealPopup(item: draft, close: popups.hide)
                     }
                 }
                 .padding(.horizontal, 10)
@@ -672,6 +760,69 @@ struct WhoPopup: View {
         let keep = sameName(t.assignee, name) && !t.assigneeColor.isEmpty
         t.assigneeColor = name.isEmpty ? "" : (keep ? t.assigneeColor : store.colorFor(name))
         t.assignee = name
+        item = t
+        close()
+    }
+}
+
+struct DayPopup: View {
+    @Binding var item: Item?
+    let close: () -> Void
+
+    var body: some View {
+        let t = item ?? Item(id: "")
+        PopupCard(title: "Which day?", close: close) {
+            VStack(spacing: 0) {
+                ForEach(Catalog.days, id: \.self) { d in
+                    PopupRow(text: d == "All" ? "All days" : (Catalog.dayNames[d] ?? d), on: t.dayKey == d || (d == "All" && !Catalog.days.contains(t.dayKey)),
+                             action: { set(d) }) {
+                        Image(systemName: d == "All" ? "calendar" : "calendar.day.timeline.left").foregroundStyle(Look.accent)
+                    }
+                }
+            }
+        }
+    }
+
+    private func set(_ d: String) {
+        guard var t = item else { return close() }
+        t.day = d
+        item = t
+        close()
+    }
+}
+
+struct MealPopup: View {
+    @Binding var item: Item?
+    let close: () -> Void
+
+    var body: some View {
+        let t = item ?? Item(id: "")
+        PopupCard(title: "Which meal?", close: close) {
+            VStack(spacing: 0) {
+                ForEach(Catalog.meals, id: \.self) { m in
+                    PopupRow(text: m, on: t.meal == m, action: { set(m) }) {
+                        Image(systemName: icon(m)).foregroundStyle(Look.green)
+                    }
+                }
+                PopupRow(text: "No meal", on: t.meal.isEmpty, action: { set("") }) {
+                    Image(systemName: "minus.circle").foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func icon(_ m: String) -> String {
+        switch m {
+        case "Breakfast": return "cup.and.saucer.fill"
+        case "Lunch": return "takeoutbag.and.cup.and.straw.fill"
+        case "Dinner": return "fork.knife"
+        default: return "birthday.cake.fill"
+        }
+    }
+
+    private func set(_ m: String) {
+        guard var t = item else { return close() }
+        t.meal = m
         item = t
         close()
     }

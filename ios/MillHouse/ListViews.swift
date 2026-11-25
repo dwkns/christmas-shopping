@@ -49,46 +49,125 @@ struct RootView: View {
 
 struct ShopView: View {
     @EnvironmentObject var store: Store
-    @State private var editing: Item?
-    @State private var adding = false
+    @EnvironmentObject var popups: Popups
+    @Environment(\.scenePhase) private var phase
+    /// The item open as a card, edited here and saved when it closes (the to-do pattern).
+    @State private var draft: Item?
+    @State private var isNew = false
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         NavigationStack {
-            TightList {
-                if store.shopItems.isEmpty {
-                    EmptyState(emoji: "🎄", title: "Nothing on the list yet", text: "Tap + to put the first item on the shared list.")
-                } else {
-                    ForEach(groups, id: \.title) { g in
-                        Section {
-                            ForEach(g.items) { i in row(i, hide: g.hide) }
-                        } header: {
-                            if !g.title.isEmpty { SectionHeader(title: g.title, items: g.items, word: "to buy") }
+            ZStack(alignment: .bottomTrailing) {
+                List {
+                    if isNew, draft != nil { Section { card } }
+                    if store.shopItems.isEmpty, draft == nil {
+                        EmptyState(emoji: "🎄", title: "Nothing on the list yet", text: "Tap + to put the first item on the shared list.")
+                            .listRowSeparator(.hidden)
+                    } else {
+                        ForEach(groups, id: \.title) { g in
+                            Section {
+                                ForEach(g.items) { i in
+                                    if !isNew, draft?.id == i.id { card } else { row(i, hide: g.hide) }
+                                }
+                            } header: {
+                                if !g.title.isEmpty { SectionHeader(title: g.title, items: g.items, word: "to buy") }
+                            }
+                        }
+                        if store.shopTab == "aisle", store.shopItems.contains(where: { store.aisle(of: $0) == nil }), store.syncState == .offline {
+                            Text("Items are sorted into aisles when the phone is online.").font(.footnote).foregroundStyle(.secondary)
+                                .listRowSeparator(.hidden)
                         }
                     }
-                    if store.shopTab == "aisle", store.shopItems.contains(where: { store.aisle(of: $0) == nil }), store.syncState == .offline {
-                        Text("Items are sorted into aisles when the phone is online.").font(.footnote).foregroundStyle(.secondary)
-                            .listRowBackground(Color.clear)
-                    }
                 }
-            } top: {
-                SubTabs(selection: $store.shopTab, options: [("all", "All"), ("day", "Day"), ("meal", "Meal"), ("aisle", "Aisle")])
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, Look.rowHeight)
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    SubTabs(selection: $store.shopTab, options: [("all", "All"), ("day", "Day"), ("meal", "Meal"), ("aisle", "Aisle")])
+                        .padding(.horizontal, 16).padding(.bottom, 6).background(.bar)
+                }
+                .navigationBarTitleDisplayMode(.inline)
+                .refreshable {
+                    await store.sync()
+                    await store.fetchAisles(force: true)
+                }
+                .animation(.snappy(duration: 0.25), value: draft?.id)
+
+                if draft == nil {
+                    AddButton(label: "New item", action: add)
+                }
             }
-            .refreshable {
-                await store.sync()
-                await store.fetchAisles(force: true)
+            .toolbar {
+                CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy",
+                              done: draft == nil ? nil : { close() }, add: nil)
             }
-            .toolbar { CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy") { adding = true } }
-            .sheet(item: $editing) { ItemSheet(item: $0) }
-            .sheet(isPresented: $adding) { ItemSheet(item: nil) }
             .task(id: store.shopTab) { if store.shopTab == "aisle" { await store.fetchAisles() } }
         }
+        .onChange(of: phase) { _, p in if p != .active { close() } }
+        .onDisappear { close() }
+    }
+
+    @ViewBuilder private var card: some View {
+        if let d = draft {
+            ShopCard(item: Binding(get: { draft ?? d }, set: { draft = $0 }), focus: $nameFocused,
+                     onDay: { nameFocused = false; popups.show(.day(d.id)) },
+                     onMeal: { nameFocused = false; popups.show(.meal(d.id)) },
+                     onDelete: delete, onSubmit: close)
+                .onAppear { popups.editing = $draft }
+        }
+    }
+
+    private func add() {
+        close()
+        var i = Item(id: newID())
+        i.createdAt = nowMillis()
+        i.by = store.me?.name ?? ""
+        i.color = store.me?.color ?? ""
+        i.day = "All"
+        isNew = true
+        draft = i
+        nameFocused = true
+    }
+
+    private func open(_ i: Item) {
+        isNew = false
+        draft = i
+    }
+
+    /// Saves the open card if anything changed; a new one with no name is dropped.
+    private func close() {
+        guard var d = draft else { return }
+        nameFocused = false
+        d.name = d.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        d.qty = d.qty.trimmingCharacters(in: .whitespaces)
+        d.notes = d.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let old = store.items[d.id]
+        if d.name.isEmpty { d.name = isNew ? "" : (old?.name ?? "") }
+        if !d.name.isEmpty, isNew || (old != nil && old != d) {
+            store.save(d)
+            if isNew { store.toast = .init(message: "Added “\(d.name)”") }
+        }
+        withAnimation(.snappy(duration: 0.25)) {
+            draft = nil
+            isNew = false
+        }
+    }
+
+    private func delete() {
+        if let d = draft, !isNew { store.remove(d) }
+        draft = nil
+        isNew = false
     }
 
     private func row(_ i: Item, hide: String) -> some View {
         var tags: [Tag] = []
         if !i.day.isEmpty, hide != "day" { tags.append(Tag(text: Catalog.dayNames[i.dayKey] ?? i.day, color: Look.accent)) }
         if !i.meal.isEmpty, hide != "meal" { tags.append(Tag(text: i.meal, color: Look.green)) }
-        return ItemRow(item: i, dot: i.by.isEmpty ? nil : i.color, detail: i.qty, tags: tags) { editing = i }
+        return ItemRow(item: i, dot: i.by.isEmpty ? nil : i.color, detail: i.qty, tags: tags) {
+            draft == nil ? open(i) : close()
+        }
+        .opacity(draft == nil ? 1 : 0.45)
     }
 
     struct Group { let title: String; let items: [Item]; let hide: String }
@@ -178,25 +257,6 @@ struct TodoControls: View {
 }
 
 // MARK: - Shared pieces
-
-/// An inset list with the web app's spacing: 40 pt rows, 12 pt side padding, small gaps between sections, and the
-/// sub-tabs pinned above it.
-struct TightList<Content: View, Top: View>: View {
-    @ViewBuilder let content: Content
-    @ViewBuilder let top: Top
-
-    var body: some View {
-        List { content }
-            .listStyle(.insetGrouped)
-            .listSectionSpacing(.compact)
-            .environment(\.defaultMinListRowHeight, Look.rowHeight)
-            .contentMargins(.top, 4, for: .scrollContent)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                top.padding(.horizontal, 16).padding(.bottom, 6).background(.bar)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-    }
-}
 
 /// The web app's segmented sub-tabs (.subtabs): 13 pt, a light fill, the chosen one raised.
 struct SubTabs: View {
@@ -320,7 +380,6 @@ struct ItemRow: View {
                     }
                     }
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
