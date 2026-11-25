@@ -128,23 +128,30 @@ struct TodoControls: View {
     var body: some View {
         HStack(spacing: 8) {
             control("Show", "person.2", $store.todoFilter, [("all", "Everyone"), ("mine", "Mine")]
-                    + shown.map { ($0, firstName($0)) } + [("anyone", "Anyone")])
-            control("Group", "square.stack.3d.up", $store.todoGroup, [("person", "Person"), ("due", "Due"), ("none", "None")])
-            control("Sort", "arrow.up.arrow.down", $store.todoSort, [("due", "Due date"), ("added", "Newest"), ("name", "A–Z")])
+                    + shown.map { ($0, firstName($0)) } + [("anyone", "Unassigned")])
+            control("Organise by", "square.stack.3d.up", $store.todoGroup, [("person", "Person"), ("due", "Due"), ("none", "None")])
+            control("Sort by", "arrow.up.arrow.down", $store.todoSort, [("due", "Due date"), ("added", "Newest"), ("name", "A–Z")])
         }
         .sensoryFeedback(.selection, trigger: store.todoFilter + store.todoGroup + store.todoSort)
+        // "Mine" covers my own name, so a filter saved as my name becomes Mine.
+        .onAppear { if let me = store.me?.name, !me.isEmpty, sameName(store.todoFilter, me) { store.todoFilter = "mine" } }
     }
 
-    /// The people, plus the one chosen before, so the menu still names them once their to-dos are all gone.
+    /// The other people (Mine covers me), plus the one chosen before, so the menu still names them once their to-dos
+    /// are all gone.
     private var shown: [String] {
-        let f = store.todoFilter
-        return ["all", "mine", "anyone"].contains(f) || names.contains(where: { sameName($0, f) }) ? names : names + [f]
+        let f = store.todoFilter, me = store.me?.name ?? ""
+        let others = names.filter { me.isEmpty || !sameName($0, me) }
+        return ["all", "mine", "anyone"].contains(f) || others.contains(where: { sameName($0, f) }) ? others : others + [f]
     }
 
     private func control(_ label: String, _ icon: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
         Menu {
-            Picker(label, selection: value) {
-                ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
+            Section(label) {
+                Picker(label, selection: value) {
+                    ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
+                }
+                .pickerStyle(.inline)
             }
         } label: {
             HStack(spacing: 3) {

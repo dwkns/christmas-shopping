@@ -1,1 +1,3 @@
-Settings has a Notifications section: the main switch, then Shopping (off to start) and To-dos (on). The test notification has moved to Debug.
+- To-do filters have titles: Show, Organise by, Sort by
+- Show no longer lists your own name (that's Mine)
+- "Anyone" is now "Unassigned"

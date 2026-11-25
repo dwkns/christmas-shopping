@@ -169,7 +169,7 @@ struct TodoView: View {
                 if !list.isEmpty { out.append((firstName(n), sorted(list))) }
             }
             let anyone = open.filter { $0.assignee.isEmpty }
-            if !anyone.isEmpty { out.append(("Anyone", sorted(anyone))) }
+            if !anyone.isEmpty { out.append(("Unassigned", sorted(anyone))) }
         case "due":
             for s in TodoSection.allCases where s != .done {
                 let list = open.filter { TodoSection.of($0) == s }
@@ -293,7 +293,7 @@ struct WhoTag: View {
     var body: some View {
         let c = item.assignee.isEmpty ? Catalog.anyoneColor
             : (item.assigneeColor.isEmpty ? store.colorFor(item.assignee) : item.assigneeColor)
-        TagView(tag: Tag(text: item.assignee.isEmpty ? "Anyone" : firstName(item.assignee), color: Color(hex: c)))
+        TagView(tag: Tag(text: item.assignee.isEmpty ? "Unassigned" : firstName(item.assignee), color: Color(hex: c)))
             .padding(.top, 2)
     }
 }
@@ -338,7 +338,7 @@ struct TodoCard: View {
                     let c = item.assignee.isEmpty ? Catalog.anyoneColor
                         : (item.assigneeColor.isEmpty ? store.colorFor(item.assignee) : item.assigneeColor)
                     Circle().fill(Color(hex: c)).frame(width: 9, height: 9)
-                    Text(item.assignee.isEmpty ? "Anyone" : firstName(item.assignee))
+                    Text(item.assignee.isEmpty ? "Unassigned" : firstName(item.assignee))
                 }
                 Spacer()
                 Button(action: onDelete) {
@@ -643,7 +643,7 @@ struct WhoPopup: View {
                     Circle().fill(Color(hex: p.color.isEmpty ? store.colorFor(p.name) : p.color)).frame(width: 14, height: 14)
                 }
             }
-            PopupRow(text: "Anyone", on: t.assignee.isEmpty, action: { set("") }) {
+            PopupRow(text: "Unassigned", on: t.assignee.isEmpty, action: { set("") }) {
                 Circle().fill(Color(hex: Catalog.anyoneColor)).frame(width: 14, height: 14)
             }
             HStack(spacing: 12) {
