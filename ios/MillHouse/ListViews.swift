@@ -146,6 +146,14 @@ struct TodoControls: View {
     }
 
     private func control(_ label: String, _ icon: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).padding(.leading, 10)
+                .accessibilityHidden(true)
+            menu(label, icon, value, options)
+        }
+    }
+
+    private func menu(_ label: String, _ icon: String, _ value: Binding<String>, _ options: [(String, String)]) -> some View {
         Menu {
             Section(label) {
                 Picker(label, selection: value) {

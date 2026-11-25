@@ -1,3 +1,1 @@
-- To-do filters have titles: Show, Organise by, Sort by
-- Show no longer lists your own name (that's Mine)
-- "Anyone" is now "Unassigned"
+- Show, Organise by and Sort by labels above the to-do controls
