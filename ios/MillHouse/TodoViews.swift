@@ -10,6 +10,8 @@ struct TodoView: View {
     /// The to-do open as a card, edited here and saved when it closes.
     @State private var draft: Item?
     @State private var isNew = false
+    /// Where the open card is on screen, so a tap anywhere else closes it.
+    @State private var cardFrame: CGRect = .zero
     @FocusState private var titleFocused: Bool
 
     var body: some View {
@@ -46,6 +48,9 @@ struct TodoView: View {
                     AddButton(label: "New to-do", action: add)
                 }
             }
+            .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { v in
+                if draft != nil, !cardFrame.contains(v.location) { close() }
+            }, isEnabled: draft != nil)
             .toolbar {
                 CompactHeader(title: "To-do", count: store.todoItems.filter { !$0.done }.count, word: "to do",
                               done: draft == nil ? nil : { close() }, add: nil)
@@ -60,8 +65,9 @@ struct TodoView: View {
     private func row(_ t: Item) -> some View {
         TodoRow(item: t, showWho: t.done || store.todoGroup != "person")
             .contentShape(Rectangle())
-            .onTapGesture { draft == nil ? open(t) : close() }
+            .onTapGesture { open(t) }
             .opacity(draft == nil ? 1 : 0.45)
+            .allowsHitTesting(draft == nil) // while a card is open, a tap here only closes it
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) { store.remove(t) } label: { Label("Delete", systemImage: "trash") }
             }
@@ -74,6 +80,7 @@ struct TodoView: View {
                      onWho: { titleFocused = false; popups.show(.who(d.id)) },
                      onDelete: delete, onSubmit: close)
                 .onAppear { popups.editing = $draft }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { cardFrame = $0 }
         }
     }
 

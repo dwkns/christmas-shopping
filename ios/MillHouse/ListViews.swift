@@ -54,6 +54,8 @@ struct ShopView: View {
     /// The item open as a card, edited here and saved when it closes (the to-do pattern).
     @State private var draft: Item?
     @State private var isNew = false
+    /// Where the open card is on screen, so a tap anywhere else closes it.
+    @State private var cardFrame: CGRect = .zero
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -98,6 +100,9 @@ struct ShopView: View {
                     AddButton(label: "New item", action: add)
                 }
             }
+            .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { v in
+                if draft != nil, !cardFrame.contains(v.location) { close() }
+            }, isEnabled: draft != nil)
             .toolbar {
                 CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy",
                               done: draft == nil ? nil : { close() }, add: nil)
@@ -115,6 +120,7 @@ struct ShopView: View {
                      onMeal: { nameFocused = false; popups.show(.meal(d.id)) },
                      onDelete: delete, onSubmit: close)
                 .onAppear { popups.editing = $draft }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { cardFrame = $0 }
         }
     }
 
@@ -164,10 +170,9 @@ struct ShopView: View {
         var tags: [Tag] = []
         if !i.day.isEmpty, hide != "day" { tags.append(Tag(text: Catalog.dayNames[i.dayKey] ?? i.day, color: Look.accent)) }
         if !i.meal.isEmpty, hide != "meal" { tags.append(Tag(text: i.meal, color: Look.green)) }
-        return ItemRow(item: i, dot: i.by.isEmpty ? nil : i.color, detail: i.qty, tags: tags) {
-            draft == nil ? open(i) : close()
-        }
-        .opacity(draft == nil ? 1 : 0.45)
+        return ItemRow(item: i, dot: i.by.isEmpty ? nil : i.color, detail: i.qty, tags: tags) { open(i) }
+            .opacity(draft == nil ? 1 : 0.45)
+            .allowsHitTesting(draft == nil) // while a card is open, a tap here only closes it
     }
 
     struct Group { let title: String; let items: [Item]; let hide: String }

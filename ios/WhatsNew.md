@@ -1,1 +1,1 @@
-- Quantity sits on its own line under the item name
+- Tap anywhere outside an open item or to-do to close it
