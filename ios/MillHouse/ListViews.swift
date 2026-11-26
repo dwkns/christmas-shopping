@@ -57,6 +57,16 @@ struct ShopView: View {
     /// Where the open card is on screen, so a tap anywhere else closes it.
     @State private var cardFrame: CGRect = .zero
     @FocusState private var nameFocused: Bool
+    @State private var confirmClear = false
+
+    private var boughtCount: Int { store.shopItems.filter(\.done).count }
+
+    @ViewBuilder private var moreMenu: some View {
+        Button(role: .destructive) { confirmClear = true } label: {
+            Label(boughtCount > 0 ? "Clear \(boughtCount) Bought" : "Nothing Bought Yet", systemImage: "checkmark.circle.badge.xmark")
+        }
+        .disabled(boughtCount == 0)
+    }
 
     var body: some View {
         NavigationStack {
@@ -105,7 +115,11 @@ struct ShopView: View {
             }, isEnabled: draft != nil)
             .toolbar {
                 CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy",
-                              done: draft == nil ? nil : { close() }, add: nil)
+                              done: draft == nil ? nil : { close() }, add: nil, more: AnyView(moreMenu))
+            }
+            .confirmationDialog("Remove \(boughtCount) bought item\(boughtCount == 1 ? "" : "s") from the list for everyone?",
+                                isPresented: $confirmClear, titleVisibility: .visible) {
+                Button("Remove", role: .destructive) { store.clearDone(todos: false) }
             }
             .task(id: store.shopTab) { if store.shopTab == "aisle" { await store.fetchAisles() } }
         }
@@ -287,6 +301,8 @@ struct CompactHeader: ToolbarContent {
     /// When set, the right-hand button is Done (a to-do card is open) instead of +.
     var done: (() -> Void)? = nil
     let add: (() -> Void)?
+    /// The items of a ••• menu at the top right, when there is no open card.
+    var more: AnyView? = nil
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
@@ -300,6 +316,11 @@ struct CompactHeader: ToolbarContent {
         if let done {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done", action: done).fontWeight(.semibold)
+            }
+        } else if let more {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu { more } label: { Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)) }
+                    .accessibilityLabel("More")
             }
         } else if let add {
             ToolbarItem(placement: .topBarTrailing) {

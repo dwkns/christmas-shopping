@@ -1,1 +1,1 @@
-- Tap anywhere outside an open item or to-do to close it
+- Shopping has a ••• menu at the top right with Clear Bought
