@@ -16,7 +16,8 @@ export default async () => {
 
   const subs = (await allSubs()).filter((s) => s.kind !== "apns");
   await Promise.all(subs.map((sub) => {
-    const mine = due.filter((t) => !t.assignee || sameName(t.assignee, sub.name));
+    const whoOf = (t) => (Array.isArray(t.assignees) && t.assignees.length ? t.assignees : t.assignee ? [t.assignee] : []);
+    const mine = due.filter((t) => !whoOf(t).length || whoOf(t).some((n) => sameName(n, sub.name)));
     if (!mine.length) return null;
     const overdue = mine.filter((t) => t.due < today).length;
     const lines = mine.slice(0, 4).map((t) => `• ${t.name}${t.due < today ? ` (was due ${dueLabel(t.due)})` : ""}`);

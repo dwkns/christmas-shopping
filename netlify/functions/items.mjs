@@ -14,6 +14,13 @@ const json = (body, status = 200) =>
 
 const validId = (id) => typeof id === "string" && /^[A-Za-z0-9_-]{6,64}$/.test(id);
 const validDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
+// Everyone a to-do is for: `assignees` (iPhone 0.1.21+), else the single `assignee`; empty means anyone.
+const whoOf = (t) => (Array.isArray(t?.assignees) && t.assignees.length ? t.assignees : t?.assignee ? [t.assignee] : []);
+const sameWho = (a, b) => {
+  const x = whoOf(a).map((n) => n.toLowerCase()).sort(), y = whoOf(b).map((n) => n.toLowerCase()).sort();
+  return x.length === y.length && x.every((n, i) => n === y[i]);
+};
+const cleanNames = (v) => [...new Set((Array.isArray(v) ? v : []).map((n) => String(n || "").trim().slice(0, 40)).filter(Boolean))].slice(0, 12);
 const list = (names) => names.length <= 2 ? names.join(" and ") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
 
 // Work out who to notify about this batch of changes, then send.
@@ -39,11 +46,12 @@ async function notify(actor, events) {
     }));
   }
   for (const t of assigned) {
-    const targets = (t.assignee ? subs.filter((s) => sameName(s.name, t.assignee)) : subs).filter(wantsTodos);
+    const who = whoOf(t);
+    const targets = (who.length ? subs.filter((s) => who.some((n) => sameName(s.name, n))) : subs).filter(wantsTodos);
     if (!targets.length) continue;
     const due = t.due ? ` (by ${dueLabel(t.due)})` : "";
     jobs.push(send(targets, {
-      title: t.assignee ? "New to-do for you" : "New to-do for anyone",
+      title: who.length ? "New to-do for you" : "New to-do for anyone",
       body: `${who}: ${t.name}${due}`,
       url: "/?view=todo",
       tag: `todo-${t.id}`,
@@ -87,7 +95,8 @@ export default async (req, context) => {
             done: !!c.done,
             by: String(c.by || "").slice(0, 40),
             color: /^#[0-9a-fA-F]{6}$/.test(c.color || "") ? c.color : "",
-            assignee: String(c.assignee || "").slice(0, 40),
+            assignees: cleanNames(c.assignees),
+            assignee: cleanNames(c.assignees)[0] || String(c.assignee || "").slice(0, 40),
             assigneeColor: /^#[0-9a-fA-F]{6}$/.test(c.assigneeColor || "") ? c.assigneeColor : "",
             due: validDate(c.due) ? c.due : "",
             when: ["soon", "norush"].includes(c.when) ? c.when : "", // the iPhone app's undated When choices
@@ -105,8 +114,9 @@ export default async (req, context) => {
       if (item.deleted || item.done) continue;
       const isNew = !current || current.deleted;
       if (type === "todo") {
-        if (isNew || !sameName(current.assignee, item.assignee)) {
-          if (!item.assignee || !sameName(item.assignee, actor)) events.assigned.push(item);
+        if (isNew || !sameWho(current, item)) {
+          const who = whoOf(item);
+          if (!who.length || who.some((n) => !sameName(n, actor))) events.assigned.push(item);
         }
       } else if (isNew) {
         events.added.push(item);
