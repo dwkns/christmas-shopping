@@ -191,7 +191,14 @@ struct ShopView: View {
 
     struct Group { let title: String; let items: [Item]; let hide: String }
 
+    /// The sections, with any where everything is bought moved to the bottom (in their usual order).
     private var groups: [Group] {
+        let g = rawGroups
+        let complete = { (x: Group) in !x.items.isEmpty && x.items.allSatisfy(\.done) }
+        return g.filter { !complete($0) } + g.filter(complete)
+    }
+
+    private var rawGroups: [Group] {
         let all = store.shopItems.sorted(by: byName)
         switch store.shopTab {
         case "day":
@@ -375,10 +382,21 @@ struct ItemRow: View {
     let detail: String
     let tags: [Tag]
     let onEdit: () -> Void
+    /// Shows the tick for a moment before the item slides down to the bottom, so you see what happened.
+    @State private var ticking = false
+
+    private func tick() {
+        guard !item.done else { return withAnimation(.snappy(duration: 0.4)) { store.toggle(item) } }
+        ticking = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            withAnimation(.snappy(duration: 0.45)) { store.toggle(item) }
+            ticking = false
+        }
+    }
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { store.toggle(item) } label: { CheckCircle(done: item.done) }
+            Button(action: tick) { CheckCircle(done: item.done || ticking) }
                 .buttonStyle(.plain)
                 .sensoryFeedback(.selection, trigger: item.done)
                 .accessibilityLabel(item.done ? (item.isTodo ? "Mark as not done" : "Mark as not bought")

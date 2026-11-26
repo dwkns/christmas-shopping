@@ -1,1 +1,2 @@
-- Shopping has a ••• menu at the top right with Clear Bought
+- Ticked items show the tick, then slide to the bottom
+- Sections with everything bought move to the bottom
