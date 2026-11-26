@@ -20,7 +20,7 @@ enum DueReminders {
         let today = Day.ymd(now)
         let pastMorning = Calendar.current.component(.hour, from: now) >= hour
         let mine = todos.filter { !$0.deleted && $0.isTodo && !$0.done && !$0.due.isEmpty
-            && ($0.assignee.isEmpty || (!me.isEmpty && sameName($0.assignee, me))) }
+            && ($0.who.isEmpty || $0.isFor(me)) }
         // The first morning still to come: today before 08:00, otherwise tomorrow. Anything due before it is overdue then.
         let first = pastMorning ? Day.ymd(Calendar.current.date(byAdding: .day, value: 1, to: now)!) : today
         var byDay: [String: [Item]] = [:]

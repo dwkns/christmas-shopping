@@ -1,2 +1,2 @@
-- Ticked items show the tick, then slide to the bottom
-- Sections with everything bought move to the bottom
+- To-dos can be for several people: pick any number in Who
+- Shared to-dos get their own section, e.g. "Darrell & Helen"

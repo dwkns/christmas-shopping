@@ -14,6 +14,8 @@ struct Item: Codable, Identifiable, Equatable {
     var color: String = ""
     var assignee: String = ""
     var assigneeColor: String = ""
+    /// Everyone the to-do is for (several allowed); `assignee` mirrors the first, for older copies of the app.
+    var assignees: [String] = []
     var due: String = ""           // "yyyy-MM-dd" or ""; a date wins over `when`
     var when: String = ""          // "", "soon" or "norush": a to-do with no date
     var notes: String = ""
@@ -28,13 +30,28 @@ struct Item: Codable, Identifiable, Equatable {
     /// Old "Multiple" items count as All.
     var dayKey: String { day == "Multiple" ? "All" : day }
 
+    /// Everyone the to-do is for; empty means unassigned (anyone).
+    var who: [String] { !assignees.isEmpty ? assignees : (assignee.isEmpty ? [] : [assignee]) }
+    func isFor(_ name: String) -> Bool { !name.isEmpty && who.contains { sameName($0, name) } }
+    /// "Darrell", "Darrell & Helen", "Darrell, Helen & Kate"
+    var whoText: String { Self.whoText(of: who) }
+    static func whoText(of names: [String]) -> String {
+        let n = names.map(firstName)
+        return n.isEmpty ? "Unassigned" : n.count == 1 ? n[0] : n.dropLast().joined(separator: ", ") + " & " + n.last!
+    }
+    mutating func setWho(_ names: [String], color: (String) -> String) {
+        assignees = names
+        assignee = names.first ?? ""
+        assigneeColor = names.first.map(color) ?? ""
+    }
+
     init(id: String, type: String = "") {
         self.id = id
         self.type = type
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, due, when, notes, doneAt, doneBy, editedBy, createdAt, updatedAt,
+        case id, type, name, qty, day, meal, done, by, color, assignee, assigneeColor, assignees, due, when, notes, doneAt, doneBy, editedBy, createdAt, updatedAt,
              deleted
     }
 
@@ -51,6 +68,7 @@ struct Item: Codable, Identifiable, Equatable {
         color = (try? c.decodeIfPresent(String.self, forKey: .color)) ?? ""
         assignee = (try? c.decodeIfPresent(String.self, forKey: .assignee)) ?? ""
         assigneeColor = (try? c.decodeIfPresent(String.self, forKey: .assigneeColor)) ?? ""
+        assignees = (try? c.decodeIfPresent([String].self, forKey: .assignees)) ?? []
         due = (try? c.decodeIfPresent(String.self, forKey: .due)) ?? ""
         when = (try? c.decodeIfPresent(String.self, forKey: .when)) ?? ""
         notes = (try? c.decodeIfPresent(String.self, forKey: .notes)) ?? ""
@@ -86,6 +104,7 @@ struct Item: Codable, Identifiable, Equatable {
         try c.encode(color, forKey: .color)
         try c.encode(assignee, forKey: .assignee)
         try c.encode(assigneeColor, forKey: .assigneeColor)
+        try c.encode(assignees, forKey: .assignees)
         try c.encode(due, forKey: .due)
         try c.encode(when, forKey: .when)
         try c.encode(notes, forKey: .notes)

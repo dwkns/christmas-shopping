@@ -92,13 +92,8 @@ struct TodoView: View {
         t.createdAt = nowMillis()
         t.by = store.me?.name ?? ""
         t.color = store.me?.color ?? ""
-        if store.todoFilter == "anyone" {
-            t.assignee = ""
-        } else {
-            let who = ["all", "mine"].contains(store.todoFilter) ? (store.me?.name ?? "") : store.todoFilter
-            t.assignee = who
-            t.assigneeColor = who.isEmpty ? "" : store.colorFor(who)
-        }
+        let who = store.todoFilter == "anyone" ? "" : ["all", "mine"].contains(store.todoFilter) ? (store.me?.name ?? "") : store.todoFilter
+        t.setWho(who.isEmpty ? [] : [who], color: store.colorFor)
         isNew = true
         draft = t
         titleFocused = true
@@ -136,8 +131,8 @@ struct TodoView: View {
     private var assignees: [String] {
         let myName = store.me?.name ?? ""
         var names: [String] = []
-        for t in store.todoItems where !t.assignee.isEmpty && !names.contains(where: { sameName($0, t.assignee) }) {
-            names.append(t.assignee)
+        for t in store.todoItems {
+            for n in t.who where !names.contains(where: { sameName($0, n) }) { names.append(n) }
         }
         return names.sorted { a, b in
             let am = !myName.isEmpty && sameName(a, myName), bm = !myName.isEmpty && sameName(b, myName)
@@ -150,9 +145,9 @@ struct TodoView: View {
         let myName = store.me?.name ?? ""
         switch store.todoFilter {
         case "all": return all
-        case "mine": return all.filter { $0.assignee.isEmpty || (!myName.isEmpty && sameName($0.assignee, myName)) }
-        case "anyone": return all.filter { $0.assignee.isEmpty }
-        case let name: return all.filter { sameName($0.assignee, name) }
+        case "mine": return all.filter { $0.who.isEmpty || $0.isFor(myName) }
+        case "anyone": return all.filter { $0.who.isEmpty }
+        case let name: return all.filter { $0.isFor(name) }
         }
     }
 
@@ -163,11 +158,18 @@ struct TodoView: View {
         var out: [(title: String, items: [Item])] = []
         switch store.todoGroup {
         case "person":
-            for n in assignees {
-                let list = open.filter { sameName($0.assignee, n) }
-                if !list.isEmpty { out.append((firstName(n), sorted(list))) }
+            // One section per person, then one per group of people ("Darrell & Helen"), then Unassigned.
+            let order = assignees
+            func rank(_ n: String) -> Int { order.firstIndex { sameName($0, n) } ?? order.count }
+            func key(_ t: Item) -> [Int] { t.who.map(rank).sorted() }
+            var keys: [[Int]] = []
+            for t in open where !t.who.isEmpty && !keys.contains(key(t)) { keys.append(key(t)) }
+            keys.sort { $0.count != $1.count ? $0.count < $1.count : $0.lexicographicallyPrecedes($1) }
+            for k in keys {
+                let list = open.filter { !$0.who.isEmpty && key($0) == k }
+                if let first = list.first { out.append((Item.whoText(of: first.who.sorted { rank($0) < rank($1) }), sorted(list))) }
             }
-            let anyone = open.filter { $0.assignee.isEmpty }
+            let anyone = open.filter { $0.who.isEmpty }
             if !anyone.isEmpty { out.append(("Unassigned", sorted(anyone))) }
         case "due":
             for s in TodoSection.allCases where s != .done {
@@ -290,10 +292,16 @@ struct WhoTag: View {
     let item: Item
 
     var body: some View {
-        let c = item.assignee.isEmpty ? Catalog.anyoneColor
-            : (item.assigneeColor.isEmpty ? store.colorFor(item.assignee) : item.assigneeColor)
-        TagView(tag: Tag(text: item.assignee.isEmpty ? "Unassigned" : firstName(item.assignee), color: Color(hex: c)))
-            .padding(.top, 2)
+        HStack(spacing: 4) {
+            if item.who.isEmpty {
+                TagView(tag: Tag(text: "Unassigned", color: Color(hex: Catalog.anyoneColor)))
+            } else {
+                ForEach(item.who, id: \.self) { n in
+                    TagView(tag: Tag(text: firstName(n), color: Color(hex: store.colorFor(n))))
+                }
+            }
+        }
+        .padding(.top, 2)
     }
 }
 
@@ -334,10 +342,13 @@ struct TodoCard: View {
                     }
                 }
                 chip(action: onWho) {
-                    let c = item.assignee.isEmpty ? Catalog.anyoneColor
-                        : (item.assigneeColor.isEmpty ? store.colorFor(item.assignee) : item.assigneeColor)
-                    Circle().fill(Color(hex: c)).frame(width: 9, height: 9)
-                    Text(item.assignee.isEmpty ? "Unassigned" : firstName(item.assignee))
+                    HStack(spacing: -3) {
+                        ForEach(item.who.isEmpty ? [""] : item.who, id: \.self) { n in
+                            Circle().fill(Color(hex: n.isEmpty ? Catalog.anyoneColor : store.colorFor(n))).frame(width: 9, height: 9)
+                                .overlay(Circle().stroke(Color(.secondarySystemBackground), lineWidth: 1))
+                        }
+                    }
+                    Text(item.whoText).lineLimit(1)
                 }
                 Spacer()
                 Button(action: onDelete) {
@@ -722,7 +733,7 @@ struct WhoPopup: View {
 
     var body: some View {
         let t = item ?? Item(id: "")
-        PopupCard(title: "Who?", close: close) {
+        PopupCard(title: "Who? (pick any)", close: close) {
             ViewThatFits(in: .vertical) {
                 list(t)
                 ScrollView { list(t) }.frame(maxHeight: 520)
@@ -734,12 +745,12 @@ struct WhoPopup: View {
         VStack(spacing: 0) {
             ForEach(store.people(), id: \.name) { p in
                 let mine = store.me.map { sameName($0.name, p.name) } == true
-                PopupRow(text: firstName(p.name) + (mine ? " (me)" : ""), on: !t.assignee.isEmpty && sameName(t.assignee, p.name),
-                         action: { set(p.name) }) {
+                PopupRow(text: firstName(p.name) + (mine ? " (me)" : ""), on: t.isFor(p.name),
+                         action: { toggle(p.name) }) {
                     Circle().fill(Color(hex: p.color.isEmpty ? store.colorFor(p.name) : p.color)).frame(width: 14, height: 14)
                 }
             }
-            PopupRow(text: "Unassigned", on: t.assignee.isEmpty, action: { set("") }) {
+            PopupRow(text: "Unassigned", on: t.who.isEmpty, action: { set([]); close() }) {
                 Circle().fill(Color(hex: Catalog.anyoneColor)).frame(width: 14, height: 14)
             }
             HStack(spacing: 12) {
@@ -754,22 +765,35 @@ struct WhoPopup: View {
                 }
             }
             .padding(.horizontal, 8).frame(height: 46)
+            Button(action: close) {
+                Text("Done").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 46)
+                    .background(Look.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
         }
+        .sensoryFeedback(.selection, trigger: t.who)
     }
 
     private func addOther() {
         let n = other.split(separator: " ").joined(separator: " ")
-        guard !n.isEmpty else { return }
-        set(n)
+        guard !n.isEmpty, let t = item else { return }
+        other = ""
+        otherFocused = false
+        if !t.isFor(n) { set(t.who + [n]) }
     }
 
-    private func set(_ name: String) {
-        guard var t = item else { return close() }
-        let keep = sameName(t.assignee, name) && !t.assigneeColor.isEmpty
-        t.assigneeColor = name.isEmpty ? "" : (keep ? t.assigneeColor : store.colorFor(name))
-        t.assignee = name
+    /// Tapping a person adds or removes them; the pop-up stays open so several can be picked.
+    private func toggle(_ name: String) {
+        guard let t = item else { return }
+        set(t.isFor(name) ? t.who.filter { !sameName($0, name) } : t.who + [name])
+    }
+
+    private func set(_ names: [String]) {
+        guard var t = item else { return }
+        t.setWho(names, color: store.colorFor)
         item = t
-        close()
     }
 }
 

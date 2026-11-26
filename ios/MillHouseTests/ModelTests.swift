@@ -119,4 +119,18 @@ final class DueReminderTests: XCTestCase {
         let after8 = DueReminders.plan(todos: todos, me: "D", now: at("2026-12-20", hour: 9))
         XCTAssertEqual(after8.map(\.day), ["2026-12-21"])
     }
+
+    func testSeveralAssigneesRoundTripAndOldSingleAssigneeStillWorks() throws {
+        var t = Item(id: "abcdef1", type: "todo")
+        t.setWho(["Darrell", "Helen"], color: { _ in "#FF9500" })
+        XCTAssertEqual(t.assignee, "Darrell")
+        let back = try JSONDecoder().decode(Item.self, from: JSONEncoder().encode(t))
+        XCTAssertEqual(back.who, ["Darrell", "Helen"])
+        XCTAssertTrue(back.isFor("helen"))
+        XCTAssertEqual(back.whoText, "Darrell & Helen")
+        let old = try JSONDecoder().decode(Item.self, from: Data(#"{"id":"abcdef2","type":"todo","assignee":"Helen"}"#.utf8))
+        XCTAssertEqual(old.who, ["Helen"])
+        XCTAssertFalse(old.isFor("Darrell"))
+        XCTAssertEqual(Item(id: "abcdef3", type: "todo").whoText, "Unassigned")
+    }
 }

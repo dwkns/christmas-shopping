@@ -91,6 +91,7 @@ final class Store: ObservableObject {
         for i in live.sorted(by: { $0.createdAt < $1.createdAt }) {
             add(i.by, i.color)
             add(i.assignee, i.assigneeColor)
+            for n in i.who { add(n, "") }
         }
         return out
     }
