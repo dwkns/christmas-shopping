@@ -22,6 +22,8 @@ final class Store: ObservableObject {
     @Published private(set) var syncState: SyncState = .syncing
     @Published private(set) var aisleBusy = false
     @Published var toast: Toast?
+    /// Ticked-off items this phone has archived (id → when), hidden from its lists but kept on the server for everyone.
+    @Published private(set) var archived: [String: Int64] = [:]
 
     struct Toast: Identifiable, Equatable {
         let id = UUID()
@@ -39,6 +41,7 @@ final class Store: ObservableObject {
         var todoFilter: String?
         var todoGroup: String?
         var todoSort: String?
+        var archived: [String: Int64]?
     }
 
     private let file: URL
@@ -60,20 +63,39 @@ final class Store: ObservableObject {
             todoFilter = s.todoFilter ?? "all"
             todoGroup = s.todoGroup ?? "person"
             todoSort = s.todoSort ?? "due"
+            archived = s.archived ?? [:]
         }
     }
 
     func persist() {
         let s = Saved(items: items, outbox: outbox, aisleMap: aisleMap, me: me, shopTab: shopTab, todoFilter: todoFilter,
-                      todoGroup: todoGroup, todoSort: todoSort)
+                      todoGroup: todoGroup, todoSort: todoSort, archived: archived)
         if let data = try? JSONEncoder().encode(s) { try? data.write(to: file, options: .atomic) }
     }
 
     // MARK: - Reading
 
     var live: [Item] { items.values.filter { !$0.deleted } }
-    var shopItems: [Item] { live.filter { !$0.isTodo } }
-    var todoItems: [Item] { live.filter(\.isTodo) }
+    var shopItems: [Item] { live.filter { !$0.isTodo && !isArchived($0) } }
+    var todoItems: [Item] { live.filter { $0.isTodo && !isArchived($0) } }
+
+    /// Archived only while still ticked off: if someone unticks it, it comes back to the list.
+    func isArchived(_ i: Item) -> Bool { i.done && archived[i.id] != nil }
+    func archivedItems(todos: Bool) -> [Item] { live.filter { $0.isTodo == todos && isArchived($0) } }
+
+    /// Hides every ticked-off item of one list on this phone only; nothing is deleted.
+    func archiveDone(todos: Bool) {
+        let now = nowMillis()
+        let list = (todos ? todoItems : shopItems).filter(\.done)
+        withAnimation(.snappy(duration: 0.35)) { for i in list { archived[i.id] = now } }
+        persist()
+        if !list.isEmpty { toast = Toast(message: "Archived \(list.count) item\(list.count == 1 ? "" : "s")") }
+    }
+
+    func unarchive(_ i: Item) {
+        archived[i.id] = nil
+        persist()
+    }
 
     /// Everyone the list knows about: item authors, to-do assignees, and me.
     func people() -> [Person] {

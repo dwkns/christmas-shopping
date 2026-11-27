@@ -57,13 +57,11 @@ struct ShopView: View {
     /// Where the open card is on screen, so a tap anywhere else closes it.
     @State private var cardFrame: CGRect = .zero
     @FocusState private var nameFocused: Bool
-    @State private var confirmClear = false
-
     private var boughtCount: Int { store.shopItems.filter(\.done).count }
 
     @ViewBuilder private var moreMenu: some View {
-        Button(role: .destructive) { confirmClear = true } label: {
-            Label(boughtCount > 0 ? "Clear \(boughtCount) Bought" : "Nothing Bought Yet", systemImage: "checkmark.circle.badge.xmark")
+        Button { store.archiveDone(todos: false) } label: {
+            Label(boughtCount > 0 ? "Archive \(boughtCount) Bought" : "Nothing Bought to Archive", systemImage: "archivebox")
         }
         .disabled(boughtCount == 0)
     }
@@ -91,6 +89,7 @@ struct ShopView: View {
                                 .listRowSeparator(.hidden)
                         }
                     }
+                    Section { ArchiveLink(todos: false) }
                 }
                 .listStyle(.plain)
                 .environment(\.defaultMinListRowHeight, Look.rowHeight)
@@ -116,10 +115,6 @@ struct ShopView: View {
             .toolbar {
                 CompactHeader(title: "Shopping", count: store.shopItems.filter { !$0.done }.count, word: "to buy",
                               done: draft == nil ? nil : { close() }, add: nil, more: AnyView(moreMenu))
-            }
-            .confirmationDialog("Remove \(boughtCount) bought item\(boughtCount == 1 ? "" : "s") from the list for everyone?",
-                                isPresented: $confirmClear, titleVisibility: .visible) {
-                Button("Remove", role: .destructive) { store.clearDone(todos: false) }
             }
             .task(id: store.shopTab) { if store.shopTab == "aisle" { await store.fetchAisles() } }
         }

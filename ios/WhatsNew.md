@@ -1,2 +1,3 @@
-- To-dos can be for several people: pick any number in Who
-- Shared to-dos get their own section, e.g. "Darrell & Helen"
+- ••• menu on Shopping and To-do: archive ticked-off items (on this phone only; nothing is deleted)
+- Archived link at the bottom of each list: search, Recent (30 days) or pick a month
+- Swipe an archived item to restore it

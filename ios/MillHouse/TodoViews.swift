@@ -33,6 +33,7 @@ struct TodoView: View {
                             SectionHeader(title: g.title, items: g.items, word: "to do")
                         }
                     }
+                    Section { ArchiveLink(todos: true) }
                 }
                 .listStyle(.plain)
                 .environment(\.defaultMinListRowHeight, 36)
@@ -53,11 +54,19 @@ struct TodoView: View {
             }, isEnabled: draft != nil)
             .toolbar {
                 CompactHeader(title: "To-do", count: store.todoItems.filter { !$0.done }.count, word: "to do",
-                              done: draft == nil ? nil : { close() }, add: nil)
+                              done: draft == nil ? nil : { close() }, add: nil, more: AnyView(moreMenu))
             }
         }
         .onChange(of: phase) { _, p in if p != .active { close() } }
         .onDisappear { close() }
+    }
+
+    @ViewBuilder private var moreMenu: some View {
+        let n = store.todoItems.filter(\.done).count
+        Button { store.archiveDone(todos: true) } label: {
+            Label(n > 0 ? "Archive \(n) Done" : "Nothing Done to Archive", systemImage: "archivebox")
+        }
+        .disabled(n == 0)
     }
 
     // MARK: Rows
